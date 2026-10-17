@@ -1,12 +1,13 @@
 from tkinter import *
 from tkinter import ttk
+from src.enums import Methods
 
 
 def side_window(frm: Frame):
     ttk.Label(frm, text="Carregar Arquivo").grid(column=0, row=0, sticky=W)
     ttk.Button(frm, text="Pesquisar").grid(column=1, row=0, sticky=W)
 
-    options = ["Random Forest", "Multi Layer Perceptron"]
+    options = Methods.values()
     ttk.Label(frm, text="Método", border=1).grid(column=0, row=1, sticky=W)
     method_box = ttk.Combobox(frm, values=options, state="readonly")
     method_box.grid(column=1, row=1, sticky=W)
