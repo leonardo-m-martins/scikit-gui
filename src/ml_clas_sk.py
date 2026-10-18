@@ -92,10 +92,15 @@ def run_individual_method(filename: str, split, method: Methods):
             features_test = scaler.fit_transform(features_test)
             train_model = mlp_treino
         case _:
-            raise Exception("Método não suportado!")
+            print(f"Método {method} não suportado!")
+            return
 
     model = train_model(features_training, classes_training)
     test_model(features_test, classes_test, model, method)
+
+def run_all_methods(filename: str, split: int):
+    for method in Methods:
+        run_individual_method(filename, split, method)
 
 # **************************************************************
 #                       MÓDULO PRINCIPAL

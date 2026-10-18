@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 from src.enums import Methods
-from src.ml_clas_sk import run_individual_method
+from src.ml_clas_sk import run_individual_method, run_all_methods
 
 def open_file(path_entry):
     if filename := filedialog.askopenfilename():
@@ -33,7 +33,9 @@ def side_window(parent):
     ttk.Button(action_frame, text="▶️ Executar Selecionado",
         command=lambda: run_individual_method(path_entry.get(), int(percentage_box.get()), method_box.get())
     ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-    ttk.Button(action_frame, text="🚀 Executar Todos").pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
+    ttk.Button(action_frame, text="🚀 Executar Todos",
+        command=lambda: run_all_methods(path_entry.get(), int(percentage_box.get()))
+    ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
 def main():
     root = tk.Tk()
