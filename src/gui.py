@@ -1,7 +1,21 @@
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog
 from src.enums import Methods
 from src.ml_clas_sk import run_individual_method, run_all_methods
+
+class OutputRedirector:
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+
+    def write(self, string):
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.insert(tk.END, string)
+        self.text_widget.see(tk.END)
+        self.text_widget.config(state=tk.DISABLED)
+
+    def flush(self):
+        pass
 
 def open_file(path_entry):
     if filename := filedialog.askopenfilename():
@@ -10,7 +24,7 @@ def open_file(path_entry):
 
 def side_window(parent):
     frm = ttk.LabelFrame(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
-    frm.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+    frm.pack(fill=tk.X, padx=20, pady=20)
     frm.columnconfigure(1, weight=1)
 
     ttk.Label(frm, text="📁 Arquivo de Dados:").grid(row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10))
@@ -37,11 +51,24 @@ def side_window(parent):
         command=lambda: run_all_methods(path_entry.get(), int(percentage_box.get()))
     ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
+    # Redirects terminal output automatically to the metrics UI text widget
+    metrics_frm = ttk.LabelFrame(parent, text=" 📈 Métricas de Avaliação ", padding=10)
+    metrics_frm.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+    
+    metrics_text = tk.Text(metrics_frm, wrap=tk.WORD, state=tk.DISABLED, height=12, bg="#f8f9fa")
+    scrollbar = ttk.Scrollbar(metrics_frm, command=metrics_text.yview)
+    metrics_text.configure(yscrollcommand=scrollbar.set)
+    
+    metrics_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    sys.stdout = OutputRedirector(metrics_text)
+
 def main():
     root = tk.Tk()
     root.title("📊 Classificação e Regressão")
-    root.geometry("640x350")
-    root.minsize(500, 320)
+    root.geometry("680x580")
+    root.minsize(550, 480)
     
     style = ttk.Style(root)
     style.theme_use('clam')
