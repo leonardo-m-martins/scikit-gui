@@ -27,7 +27,7 @@ def open_file(path_entry):
         path_entry.insert(0, filename)
 
 
-def side_window(parent):
+def top_menu(parent):
     frm = ttk.LabelFrame(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
     frm.pack(fill=tk.X, padx=20, pady=20)
     frm.columnconfigure(1, weight=1)
@@ -97,7 +97,7 @@ def main():
     style = ttk.Style(root)
     style.theme_use("clam")
 
-    side_window(root)
+    top_menu(root)
     root.mainloop()
 
 
