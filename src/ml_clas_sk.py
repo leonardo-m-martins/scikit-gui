@@ -8,20 +8,17 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
 from src.enums import Methods
+from src.shared import MethodResult, Metrics, ClassificationMetrics
+from typing import List
 
 
-def metricas(texto, y_teste, y_pred):
+def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
     cm = me.confusion_matrix(y_teste, y_pred)
     ac = me.accuracy_score(y_teste, y_pred)
     pr = me.precision_score(y_teste, y_pred, average="macro")
     re = me.recall_score(y_teste, y_pred, average="macro")
     f1 = me.f1_score(y_teste, y_pred, average="macro")
-    print("\n---------------- ", texto)
-    print("Matriz de Confusão:\n", cm)
-    print(f"Acurácia...........: {ac*100:.2f}%")
-    print(f"Precisão...........: {pr*100:.2f}%")
-    print(f"Recall.............: {re*100:.2f}%")
-    print(f"F1-measure.........: {f1*100:.2f}%")
+    return ClassificationMetrics(ac, pr, re, f1, cm)
 
 
 def ler_arquivo(arquivo):
@@ -79,12 +76,16 @@ SUPPORTED_MODELS = (
 )
 
 
-def test_model(features, classes, model: SUPPORTED_MODELS, name: str):
+def test_model(
+    features, classes, model: SUPPORTED_MODELS, name: str
+) -> ClassificationMetrics:
     pred = model.predict(features)
-    metricas(name, classes, pred)
+    return metricas(name, classes, pred)
 
 
-def run_individual_method(filename: str, split, method: Methods):
+def run_individual_method(
+    filename: str, split, method: Methods, METHOD_RESULTS: List[MethodResult]
+):
     features, classes_str = ler_arquivo(filename)
     classes = list(set(classes_str))
     classes = np.array([classes.index(c) for c in classes_str])
@@ -109,9 +110,11 @@ def run_individual_method(filename: str, split, method: Methods):
             return
 
     model = train_model(features_training, classes_training)
-    test_model(features_test, classes_test, model, method)
+    metrics = test_model(features_test, classes_test, model, method)
+    results = MethodResult(method, metrics)
+    METHOD_RESULTS.append(results)
 
 
-def run_all_methods(filename: str, split: int):
+def run_all_methods(filename: str, split: int, METHOD_RESULTS: List[MethodResult]):
     for method in Methods:
-        run_individual_method(filename, split, method)
+        run_individual_method(filename, split, method, METHOD_RESULTS)

@@ -1,24 +1,12 @@
-import sys
 import tkinter as tk
 from tkinter import ttk, filedialog
+from typing import List, Any
 from src.enums import Methods
 from src.ml_clas_sk import run_individual_method, run_all_methods
+from src.shared import MethodResult, Metrics, ClassificationMetrics
 
 DEFAULT_FILE = "./data/spambase.data"
-
-
-class OutputRedirector:
-    def __init__(self, text_widget):
-        self.text_widget = text_widget
-
-    def write(self, string):
-        self.text_widget.config(state=tk.NORMAL)
-        self.text_widget.insert(tk.END, string)
-        self.text_widget.see(tk.END)
-        self.text_widget.config(state=tk.DISABLED)
-
-    def flush(self):
-        pass
+METHOD_RESULTS: List[MethodResult] = []
 
 
 def open_file(path_entry):
@@ -59,33 +47,93 @@ def top_menu(parent):
     action_frame = ttk.Frame(frm)
     action_frame.grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
 
+    # Trigger ML methods and notify the parent window to update the results UI
+    def execute_single():
+        run_individual_method(
+            path_entry.get(),
+            int(percentage_box.get()),
+            method_box.get(),
+            METHOD_RESULTS,
+        )
+        parent.event_generate("<<UpdateResults>>")
+
+    def execute_all():
+        run_all_methods(path_entry.get(), int(percentage_box.get()), METHOD_RESULTS)
+        parent.event_generate("<<UpdateResults>>")
+
     ttk.Button(
         action_frame,
         text="▶️ Executar Selecionado",
-        command=lambda: run_individual_method(
-            path_entry.get(), int(percentage_box.get()), method_box.get()
-        ),
+        command=execute_single,
     ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+
     ttk.Button(
         action_frame,
         text="🚀 Executar Todos",
-        command=lambda: run_all_methods(path_entry.get(), int(percentage_box.get())),
+        command=execute_all,
     ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
-    # Redirects terminal output automatically to the metrics UI text widget
-    metrics_frm = ttk.LabelFrame(parent, text=" 📈 Métricas de Avaliação ", padding=10)
-    metrics_frm.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
-    metrics_text = tk.Text(
-        metrics_frm, wrap=tk.WORD, state=tk.DISABLED, height=12, bg="#f8f9fa"
+def results_menu(parent):
+    container = ttk.Frame(parent)
+    container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+
+    left_pane = ttk.Frame(container)
+    left_pane.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+
+    sort_var = tk.StringVar(value="Mais novo")
+    ttk.Combobox(
+        left_pane,
+        textvariable=sort_var,
+        values=["Mais novo", "Mais velho"],
+        state="readonly",
+    ).pack(fill=tk.X, pady=(0, 5))
+
+    listbox = tk.Listbox(left_pane, width=30)
+    listbox.pack(fill=tk.BOTH, expand=True)
+
+    right_pane = ttk.LabelFrame(
+        container, text=" 📈 Detalhes da Avaliação ", padding=15
     )
-    scrollbar = ttk.Scrollbar(metrics_frm, command=metrics_text.yview)
-    metrics_text.configure(yscrollcommand=scrollbar.set)
+    right_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    metrics_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    labels = {
+        "acc": ttk.Label(right_pane, text="Acurácia: -", font=("", 10, "bold")),
+        "prec": ttk.Label(right_pane, text="Precisão: -", font=("", 10, "bold")),
+        "rec": ttk.Label(right_pane, text="Recall: -", font=("", 10, "bold")),
+        "f1": ttk.Label(right_pane, text="F1-measure: -", font=("", 10, "bold")),
+        "cm": ttk.Label(right_pane, text="Matriz de Confusão:\n-", justify=tk.LEFT),
+    }
 
-    sys.stdout = OutputRedirector(metrics_text)
+    for lbl in labels.values():
+        lbl.pack(anchor=tk.W, pady=4)
+
+    def update_ui(*args):
+        listbox.delete(0, tk.END)
+        is_newest = sort_var.get() == "Mais novo"
+        for res in sorted(METHOD_RESULTS, key=lambda x: x.timestamp, reverse=is_newest):
+            listbox.insert(tk.END, res.get_display_name())
+
+    def on_select(event):
+        if not listbox.curselection():
+            return
+        idx = listbox.curselection()[0]
+        is_newest = sort_var.get() == "Mais novo"
+        selected = sorted(METHOD_RESULTS, key=lambda x: x.timestamp, reverse=is_newest)[
+            idx
+        ]
+
+        if isinstance(selected.metrics, ClassificationMetrics):
+            m = selected.metrics
+            labels["acc"].config(text=f"Acurácia: {m.accuracy*100:.2f}%")
+            labels["prec"].config(text=f"Precisão: {m.precision*100:.2f}%")
+            labels["rec"].config(text=f"Recall: {m.recall*100:.2f}%")
+            labels["f1"].config(text=f"F1-measure: {m.f1*100:.2f}%")
+            labels["cm"].config(text=f"Matriz de Confusão:\n{m.confusion_matrix}")
+
+    listbox.bind("<<ListboxSelect>>", on_select)
+    sort_var.trace_add("write", update_ui)
+    parent.bind("<<UpdateResults>>", update_ui)
 
 
 def main():
@@ -98,6 +146,8 @@ def main():
     style.theme_use("clam")
 
     top_menu(root)
+    results_menu(root)
+
     root.mainloop()
 
 
