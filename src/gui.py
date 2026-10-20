@@ -4,6 +4,8 @@ from tkinter import ttk, filedialog
 from src.enums import Methods
 from src.ml_clas_sk import run_individual_method, run_all_methods
 
+DEFAULT_FILE = "./data/spambase.data"
+
 class OutputRedirector:
     def __init__(self, text_widget):
         self.text_widget = text_widget
@@ -30,6 +32,8 @@ def side_window(parent):
     ttk.Label(frm, text="📁 Arquivo de Dados:").grid(row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10))
     path_entry = ttk.Entry(frm)
     path_entry.grid(row=0, column=1, sticky=tk.EW, pady=(0, 10), padx=(0, 10))
+    path_entry.delete(0, tk.END)
+    path_entry.insert(0, DEFAULT_FILE)
     ttk.Button(frm, text="🔍 Procurar", command=lambda: open_file(path_entry)).grid(row=0, column=2, pady=(0, 10))
 
     ttk.Label(frm, text="🛠️ Método:").grid(row=1, column=0, sticky=tk.W, pady=10, padx=(0, 10))
