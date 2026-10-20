@@ -3,7 +3,8 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
 from src.enums import Methods
@@ -46,11 +47,6 @@ def mlp_treino(x_train, y_train):
     return mlp_model
 
 
-def mlp_teste(x_teste, y_teste, mlp_model):
-    y_pred = mlp_model.predict(x_teste)
-    metricas("MLP", y_teste, y_pred)
-
-
 def rf_treino(x_train, y_train):
     rf_model = RandomForestClassifier(
         n_estimators=100,
@@ -66,21 +62,34 @@ def rf_treino(x_train, y_train):
     return rf_model
 
 
-def rf_teste(x_teste, y_teste, rf_model):
+def decision_tree_training(feat_train, class_train):
+    model = DecisionTreeClassifier(criterion="entropy", random_state=42)
+    model.fit(feat_train, class_train)
+    return model
 
-    y_pred = rf_model.predict(x_teste)
-    metricas("RANDOM FOREST", y_teste, y_pred)
 
-def test_model(features, classes, model: MLPClassifier | RandomForestClassifier, name: str):
+def ada_boost_training(feat_train, class_train):
+    model = AdaBoostClassifier(random_state=42)
+    model.fit(feat_train, class_train)
+    return model
+
+
+SUPPORTED_MODELS = (
+    MLPClassifier | RandomForestClassifier | DecisionTreeClassifier | AdaBoostClassifier
+)
+
+
+def test_model(features, classes, model: SUPPORTED_MODELS, name: str):
     pred = model.predict(features)
     metricas(name, classes, pred)
+
 
 def run_individual_method(filename: str, split, method: Methods):
     features, classes_str = ler_arquivo(filename)
     classes = list(set(classes_str))
     classes = np.array([classes.index(c) for c in classes_str])
     features_training, features_test, classes_training, classes_test = train_test_split(
-        features, classes, test_size=split/100, random_state=42, stratify=classes
+        features, classes, test_size=split / 100, random_state=42, stratify=classes
     )
 
     match method:
@@ -91,6 +100,10 @@ def run_individual_method(filename: str, split, method: Methods):
             features_training = scaler.fit_transform(features_training)
             features_test = scaler.fit_transform(features_test)
             train_model = mlp_treino
+        case Methods.PART:
+            train_model = decision_tree_training
+        case Methods.ADABOOSTM1:
+            train_model = ada_boost_training
         case _:
             print(f"Método {method} não suportado!")
             return
@@ -98,31 +111,7 @@ def run_individual_method(filename: str, split, method: Methods):
     model = train_model(features_training, classes_training)
     test_model(features_test, classes_test, model, method)
 
+
 def run_all_methods(filename: str, split: int):
     for method in Methods:
         run_individual_method(filename, split, method)
-
-# **************************************************************
-#                       MÓDULO PRINCIPAL
-# **************************************************************
-if __name__ == "__main__":
-    arquivo = "data/spambase.data"
-    feat, cl_str = ler_arquivo(arquivo)
-    classes = list(set(cl_str))
-    cl = np.array([classes.index(c) for c in cl_str])
-    x_treino, x_teste, y_treino, y_teste = train_test_split(
-        feat, cl, test_size=0.2, random_state=42, stratify=cl
-    )
-
-    # NORMALIZAÇÃO PARA MLP
-    scaler = StandardScaler()
-    x_treino_sc = scaler.fit_transform(x_treino)
-    x_teste_sc = scaler.transform(x_teste)
-
-    # MLP
-    modelo_mlp = mlp_treino(x_treino_sc, y_treino)
-    mlp_teste(x_teste_sc, y_teste, modelo_mlp)
-
-    # RANDOM FOREST
-    modelo_rf = rf_treino(x_treino, y_treino)
-    rf_teste(x_teste, y_teste, modelo_rf)
