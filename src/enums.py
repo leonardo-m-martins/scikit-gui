@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Methods(str, Enum):
     NAIVE_BAYES = "Naive Bayes"
     LOGISTICS = "Logistics"
