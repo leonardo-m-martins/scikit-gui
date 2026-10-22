@@ -8,7 +8,12 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
 from src.enums import Methods
-from src.shared import MethodResult, Metrics, ClassificationMetrics
+from src.shared import (
+    MethodResult,
+    Metrics,
+    ClassificationMetrics,
+    ler_arquivo_generico,
+)
 from typing import List
 
 
@@ -22,7 +27,7 @@ def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
 
 
 def ler_arquivo(arquivo):
-    df = pd.read_csv(arquivo, header=None)
+    df = ler_arquivo_generico(arquivo)
 
     atributos = df.iloc[:, :-1].astype(float).values.tolist()
     classes = df.iloc[:, -1].tolist()

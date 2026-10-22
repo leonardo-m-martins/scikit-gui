@@ -1,0 +1,6 @@
+- [x] R01 Aceitar arquivos no formato arff do weka
+- [x] R02 Determinar dataset para regressão
+- [ ] R03 Adicionar suporte a todos os Métodos Classifier que se adequem do scikit
+- [ ] R04 Adicionar suporte a todos os Métodos Regressor que se adequem do scikit
+- [ ] R05 Suporte a atributos categóricos/textuais nas features de arquivos ARFF (One-Hot Encoding / Label Encoding)
+- [ ] R06 Tratamento de valores ausentes (missing values / `?`) em datasets ARFF

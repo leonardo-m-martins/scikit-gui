@@ -6,6 +6,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
+from src.shared import ler_arquivo_generico
 
 
 def metricas(texto, y_teste, y_pred):
@@ -25,7 +26,7 @@ def metricas(texto, y_teste, y_pred):
 # LEITURA DO ARQUIVO
 # ==============================================================
 def ler_arquivo(arquivo):
-    df = pd.read_csv(arquivo, header=None)
+    df = ler_arquivo_generico(arquivo)
     atributos = df.iloc[:, :-1].astype(float).values
     target = df.iloc[:, -1].astype(float).values
     return atributos, target
