@@ -1,23 +1,16 @@
 import time
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
-
+from sklearn import metrics as me
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+
 from src.enums import Methods
-from src.shared import (
-    MethodResult,
-    Metrics,
-    ClassificationMetrics,
-    ler_arquivo_generico,
-)
-from typing import List
+from src.shared import ClassificationMetrics, MethodResult, ler_arquivo_generico
 
 
 def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
@@ -149,7 +142,7 @@ def test_model(
 
 
 def run_individual_method(
-    filename: str, split, method: Methods, METHOD_RESULTS: List[MethodResult]
+    filename: str, split, method: Methods, METHOD_RESULTS: list[MethodResult]
 ):
     start = time.perf_counter()
     features, classes, class_names = ler_arquivo(filename)
@@ -206,6 +199,6 @@ def run_individual_method(
     METHOD_RESULTS.append(results)
 
 
-def run_all_methods(filename: str, split: int, METHOD_RESULTS: List[MethodResult]):
+def run_all_methods(filename: str, split: int, METHOD_RESULTS: list[MethodResult]):
     for method in Methods:
         run_individual_method(filename, split, method, METHOD_RESULTS)

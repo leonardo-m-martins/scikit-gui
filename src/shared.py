@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import List, Any
 from datetime import datetime
+from typing import Any
+
 import pandas as pd
 from scipy.io import arff
 

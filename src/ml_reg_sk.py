@@ -1,11 +1,10 @@
-import pandas as pd
 import numpy as np
-
+from sklearn import metrics as me
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn import metrics as me
 from sklearn.preprocessing import StandardScaler
+
 from src.shared import ler_arquivo_generico
 
 
