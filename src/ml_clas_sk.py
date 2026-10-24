@@ -1,3 +1,6 @@
+import time
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 
@@ -80,6 +83,36 @@ SUPPORTED_MODELS = (
     MLPClassifier | RandomForestClassifier | DecisionTreeClassifier | AdaBoostClassifier
 )
 
+MODEL_PARAM_KEYS = {
+    MLPClassifier: (
+        "hidden_layer_sizes",
+        "activation",
+        "solver",
+        "alpha",
+        "learning_rate",
+        "max_iter",
+    ),
+    RandomForestClassifier: (
+        "n_estimators",
+        "criterion",
+        "max_depth",
+        "min_samples_split",
+        "min_samples_leaf",
+    ),
+    DecisionTreeClassifier: ("criterion", "max_depth"),
+    AdaBoostClassifier: ("n_estimators", "learning_rate"),
+}
+
+
+def get_model_params(model: SUPPORTED_MODELS) -> dict:
+    keys = MODEL_PARAM_KEYS.get(type(model), ())
+    params = model.get_params()
+    summary = {key: params[key] for key in keys if key in params}
+    n_iter = getattr(model, "n_iter_", None)
+    if n_iter is not None:
+        summary["n_iter_"] = int(np.atleast_1d(n_iter).max())
+    return summary
+
 
 def test_model(
     features, classes, model: SUPPORTED_MODELS, name: str
@@ -91,7 +124,10 @@ def test_model(
 def run_individual_method(
     filename: str, split, method: Methods, METHOD_RESULTS: List[MethodResult]
 ):
+    start = time.perf_counter()
     features, classes_str = ler_arquivo(filename)
+    load_time = time.perf_counter() - start
+
     classes = list(set(classes_str))
     classes = np.array([classes.index(c) for c in classes_str])
     features_training, features_test, classes_training, classes_test = train_test_split(
@@ -114,9 +150,33 @@ def run_individual_method(
             print(f"Método {method} não suportado!")
             return
 
+    start = time.perf_counter()
     model = train_model(features_training, classes_training)
+    train_time = time.perf_counter() - start
+
+    start = time.perf_counter()
     metrics = test_model(features_test, classes_test, model, method)
-    results = MethodResult(method, metrics)
+    test_time = time.perf_counter() - start
+
+    results = MethodResult(
+        method,
+        metrics,
+        dataset_name=Path(filename).name,
+        n_samples=len(classes),
+        n_features=len(features[0]) if features else 0,
+        n_classes=len(set(classes_str)),
+        n_train=len(features_training),
+        n_test=len(features_test),
+        test_split=split,
+        load_time=load_time,
+        train_time=train_time,
+        test_time=test_time,
+        random_state=42,
+        model_params=get_model_params(model),
+        preprocessing=(
+            "StandardScaler" if method == Methods.MULTILAYER_PERCEPTRON else None
+        ),
+    )
     METHOD_RESULTS.append(results)
 
 

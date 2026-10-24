@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog
 from typing import List, Any
 from src.enums import Methods
 from src.ml_clas_sk import run_individual_method, run_all_methods
-from src.shared import MethodResult, Metrics, ClassificationMetrics
+from src.shared import MethodResult, Metrics, ClassificationMetrics, format_duration
 
 DEFAULT_FILE = "./data/spambase.data"
 METHOD_RESULTS: List[MethodResult] = []
@@ -97,16 +97,125 @@ def results_menu(parent):
     )
     right_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    labels = {
-        "acc": ttk.Label(right_pane, text="Acurácia: -", font=("", 10, "bold")),
-        "prec": ttk.Label(right_pane, text="Precisão: -", font=("", 10, "bold")),
-        "rec": ttk.Label(right_pane, text="Recall: -", font=("", 10, "bold")),
-        "f1": ttk.Label(right_pane, text="F1-measure: -", font=("", 10, "bold")),
-        "cm": ttk.Label(right_pane, text="Matriz de Confusão:\n-", justify=tk.LEFT),
-    }
+    scroll_container = ttk.Frame(right_pane)
+    scroll_container.pack(fill=tk.BOTH, expand=True)
+    scroll_container.rowconfigure(0, weight=1)
+    scroll_container.columnconfigure(0, weight=1)
 
-    for lbl in labels.values():
-        lbl.pack(anchor=tk.W, pady=4)
+    canvas = tk.Canvas(scroll_container, highlightthickness=0, borderwidth=0)
+    canvas.grid(row=0, column=0, sticky="nsew")
+
+    scrollbar = ttk.Scrollbar(
+        scroll_container, orient=tk.VERTICAL, command=canvas.yview
+    )
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    content = ttk.Frame(canvas)
+    content_window = canvas.create_window((0, 0), window=content, anchor=tk.NW)
+
+    details = ttk.Frame(content)
+    details.pack(fill=tk.X)
+    details.columnconfigure(1, weight=1)
+    details.columnconfigure(3, weight=1)
+
+    metadata_fields = [
+        ("method", "Método:"),
+        ("timestamp", "Execução:"),
+        ("dataset", "Dataset:"),
+        ("samples", "Amostras:"),
+        ("features", "Features:"),
+        ("classes", "Classes:"),
+        ("split", "Divisão de teste:"),
+        ("train_test", "Treino / Teste:"),
+        ("load_time", "Tempo de carga:"),
+        ("train_time", "Tempo de treino:"),
+        ("test_time", "Tempo de teste:"),
+        ("total_time", "Tempo total:"),
+        ("random_state", "Random state:"),
+        ("preprocessing", "Pré-processamento:"),
+    ]
+
+    metadata = {}
+    for index, (key, text) in enumerate(metadata_fields):
+        row, col = divmod(index, 2)
+        ttk.Label(details, text=text, font=("", 9, "bold")).grid(
+            row=row, column=col * 2, sticky=tk.W, padx=(0, 5), pady=2
+        )
+        value = ttk.Label(details, text="-")
+        value.grid(row=row, column=col * 2 + 1, sticky=tk.W, padx=(0, 20), pady=2)
+        metadata[key] = value
+
+    params_row = (len(metadata_fields) + 1) // 2
+    ttk.Label(details, text="Hiperparâmetros:", font=("", 9, "bold")).grid(
+        row=params_row, column=0, sticky=tk.NW, pady=2
+    )
+    params_value = ttk.Label(details, text="-", wraplength=520, justify=tk.LEFT)
+    params_value.grid(row=params_row, column=1, columnspan=3, sticky=tk.W, pady=2)
+
+    metrics_frame = ttk.LabelFrame(
+        content, text=" 📊 Métricas (média macro) ", padding=10
+    )
+    metrics_frame.pack(fill=tk.X, pady=(15, 0))
+
+    metric_names = {
+        "acc": "Acurácia",
+        "prec": "Precisão",
+        "rec": "Recall",
+        "f1": "F1-measure",
+    }
+    metric_labels = {
+        key: ttk.Label(metrics_frame, text=f"{name}: -", font=("", 10, "bold"))
+        for key, name in metric_names.items()
+    }
+    for lbl in metric_labels.values():
+        lbl.pack(anchor=tk.W, pady=3)
+
+    cm_label = ttk.Label(metrics_frame, text="Matriz de Confusão:\n-", justify=tk.LEFT)
+    cm_label.pack(anchor=tk.W, pady=(3, 0))
+
+    def update_scrollbar():
+        bbox = canvas.bbox("all")
+        if bbox is None:
+            return
+        canvas.configure(scrollregion=bbox)
+        available_height = canvas.winfo_height()
+        if available_height <= 1:
+            return
+        content_height = bbox[3] - bbox[1]
+        if content_height > available_height and not scrollbar.winfo_ismapped():
+            scrollbar.grid(row=0, column=1, sticky=tk.NS)
+        elif content_height <= available_height and scrollbar.winfo_ismapped():
+            scrollbar.grid_remove()
+            canvas.yview_moveto(0)
+
+    def on_canvas_configure(event):
+        canvas.itemconfigure(content_window, width=event.width)
+        canvas.after_idle(update_scrollbar)
+
+    def on_mousewheel(event):
+        if not scrollbar.winfo_ismapped():
+            return
+        widget = event.widget
+        if not isinstance(widget, tk.Misc):
+            return
+        while widget is not None and widget is not canvas:
+            widget = widget.master
+        if widget is None:
+            return
+        if getattr(event, "num", None) == 4:
+            canvas.yview_scroll(-3, "units")
+        elif getattr(event, "num", None) == 5:
+            canvas.yview_scroll(3, "units")
+        else:
+            canvas.yview_scroll(-3 if event.delta > 0 else 3, "units")
+        return "break"
+
+    canvas.bind("<Configure>", on_canvas_configure)
+    content.bind("<Configure>", lambda _event: canvas.after_idle(update_scrollbar))
+    top_level = parent.winfo_toplevel()
+    top_level.bind_all("<MouseWheel>", on_mousewheel, add="+")
+    top_level.bind_all("<Button-4>", on_mousewheel, add="+")
+    top_level.bind_all("<Button-5>", on_mousewheel, add="+")
 
     def update_ui(*args):
         listbox.delete(0, tk.END)
@@ -123,13 +232,59 @@ def results_menu(parent):
             idx
         ]
 
+        metadata["method"].config(text=selected.method_name)
+        metadata["timestamp"].config(
+            text=selected.timestamp.strftime("%d/%m/%Y %H:%M:%S")
+        )
+        metadata["dataset"].config(text=selected.dataset_name or "-")
+        metadata["samples"].config(
+            text="-" if selected.n_samples is None else str(selected.n_samples)
+        )
+        metadata["features"].config(
+            text="-" if selected.n_features is None else str(selected.n_features)
+        )
+        metadata["classes"].config(
+            text="-" if selected.n_classes is None else str(selected.n_classes)
+        )
+        metadata["split"].config(
+            text=(
+                f"{selected.test_split:g}%" if selected.test_split is not None else "-"
+            )
+        )
+        metadata["train_test"].config(
+            text=(
+                f"{selected.n_train} / {selected.n_test}"
+                if selected.n_train is not None and selected.n_test is not None
+                else "-"
+            )
+        )
+        metadata["load_time"].config(text=format_duration(selected.load_time))
+        metadata["train_time"].config(text=format_duration(selected.train_time))
+        metadata["test_time"].config(text=format_duration(selected.test_time))
+        metadata["total_time"].config(text=format_duration(selected.total_time))
+        metadata["random_state"].config(
+            text="-" if selected.random_state is None else str(selected.random_state)
+        )
+        metadata["preprocessing"].config(text=selected.preprocessing or "-")
+        params_value.config(
+            text=", ".join(
+                f"{key}={value}" for key, value in selected.model_params.items()
+            )
+            or "-"
+        )
+        right_pane.config(text=f" 📈 {selected.method_name} ")
+
         if isinstance(selected.metrics, ClassificationMetrics):
             m = selected.metrics
-            labels["acc"].config(text=f"Acurácia: {m.accuracy*100:.2f}%")
-            labels["prec"].config(text=f"Precisão: {m.precision*100:.2f}%")
-            labels["rec"].config(text=f"Recall: {m.recall*100:.2f}%")
-            labels["f1"].config(text=f"F1-measure: {m.f1*100:.2f}%")
-            labels["cm"].config(text=f"Matriz de Confusão:\n{m.confusion_matrix}")
+            metric_labels["acc"].config(text=f"Acurácia: {m.accuracy*100:.2f}%")
+            metric_labels["prec"].config(text=f"Precisão: {m.precision*100:.2f}%")
+            metric_labels["rec"].config(text=f"Recall: {m.recall*100:.2f}%")
+            metric_labels["f1"].config(text=f"F1-measure: {m.f1*100:.2f}%")
+            cm_label.config(text=f"Matriz de Confusão:\n{m.confusion_matrix}")
+        else:
+            for key, name in metric_names.items():
+                metric_labels[key].config(text=f"{name}: -")
+            cm_label.config(text="Matriz de Confusão:\n-")
 
     listbox.bind("<<ListboxSelect>>", on_select)
     sort_var.trace_add("write", update_ui)
@@ -139,8 +294,8 @@ def results_menu(parent):
 def main():
     root = tk.Tk()
     root.title("📊 Classificação e Regressão")
-    root.geometry("680x580")
-    root.minsize(550, 480)
+    root.geometry("860x760")
+    root.minsize(700, 620)
 
     style = ttk.Style(root)
     style.theme_use("clam")
