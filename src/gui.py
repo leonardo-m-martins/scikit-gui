@@ -170,8 +170,11 @@ def results_menu(parent):
     for lbl in metric_labels.values():
         lbl.pack(anchor=tk.W, pady=3)
 
-    cm_label = ttk.Label(metrics_frame, text="Matriz de Confusão:\n-", justify=tk.LEFT)
-    cm_label.pack(anchor=tk.W, pady=(3, 0))
+    ttk.Label(metrics_frame, text="Matriz de Confusão:", font=("", 10, "bold")).pack(
+        anchor=tk.W, pady=(8, 4)
+    )
+    cm_container = ttk.Frame(metrics_frame)
+    cm_container.pack(fill=tk.X)
 
     def update_scrollbar():
         bbox = canvas.bbox("all")
@@ -216,6 +219,51 @@ def results_menu(parent):
     top_level.bind_all("<MouseWheel>", on_mousewheel, add="+")
     top_level.bind_all("<Button-4>", on_mousewheel, add="+")
     top_level.bind_all("<Button-5>", on_mousewheel, add="+")
+
+    def clear_confusion_matrix():
+        for child in cm_container.winfo_children():
+            child.destroy()
+        ttk.Label(cm_container, text="-").grid(row=0, column=0, sticky=tk.W)
+
+    def render_confusion_matrix(matrix, class_names):
+        for child in cm_container.winfo_children():
+            child.destroy()
+
+        rows = [list(row) for row in matrix]
+        size = len(rows)
+        if not size:
+            clear_confusion_matrix()
+            return
+
+        names = list(class_names or [])
+        if len(names) != size:
+            names = [f"Classe {index}" for index in range(size)]
+
+        def make_cell(text, row, column, bold=False):
+            cell = ttk.Label(
+                cm_container,
+                text=text,
+                relief="solid",
+                borderwidth=1,
+                padding=(8, 4),
+                anchor=tk.CENTER,
+                justify=tk.CENTER,
+                font=("", 9, "bold" if bold else "normal"),
+            )
+            cell.grid(row=row, column=column, sticky="nsew")
+
+        make_cell("Real \\ Previsto", 0, 0, bold=True)
+        for column, name in enumerate(names, start=1):
+            make_cell(name, 0, column, bold=True)
+        for row, name in enumerate(names, start=1):
+            make_cell(name, row, 0, bold=True)
+            for column in range(size):
+                make_cell(str(int(rows[row - 1][column])), row, column + 1)
+
+        for column in range(size + 1):
+            cm_container.columnconfigure(column, weight=1)
+
+    clear_confusion_matrix()
 
     def update_ui(*args):
         listbox.delete(0, tk.END)
@@ -280,11 +328,11 @@ def results_menu(parent):
             metric_labels["prec"].config(text=f"Precisão: {m.precision*100:.2f}%")
             metric_labels["rec"].config(text=f"Recall: {m.recall*100:.2f}%")
             metric_labels["f1"].config(text=f"F1-measure: {m.f1*100:.2f}%")
-            cm_label.config(text=f"Matriz de Confusão:\n{m.confusion_matrix}")
+            render_confusion_matrix(m.confusion_matrix, selected.class_names)
         else:
             for key, name in metric_names.items():
                 metric_labels[key].config(text=f"{name}: -")
-            cm_label.config(text="Matriz de Confusão:\n-")
+            clear_confusion_matrix()
 
     listbox.bind("<<ListboxSelect>>", on_select)
     sort_var.trace_add("write", update_ui)

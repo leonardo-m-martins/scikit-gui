@@ -29,13 +29,40 @@ def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
     return ClassificationMetrics(ac, pr, re, f1, cm)
 
 
+def format_class_value(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if isinstance(value, (float, np.floating)) and float(value).is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def preparar_classes(values, meta):
+    present = set(values)
+
+    if meta is not None:
+        attribute = meta.names()[-1]
+        kind, labels = meta[attribute]
+        if kind == "nominal" and labels:
+            labels = [format_class_value(label) for label in labels]
+            if present <= set(labels):
+                selected = [label for label in labels if label in present]
+                index = {label: i for i, label in enumerate(selected)}
+                return np.array([index[value] for value in values]), selected
+
+    ordered = sorted(present)
+    names = [format_class_value(value) for value in ordered]
+    index = {value: i for i, value in enumerate(ordered)}
+    return np.array([index[value] for value in values]), names
+
+
 def ler_arquivo(arquivo):
-    df = ler_arquivo_generico(arquivo)
+    df, meta = ler_arquivo_generico(arquivo, com_meta=True)
 
     atributos = df.iloc[:, :-1].astype(float).values.tolist()
-    classes = df.iloc[:, -1].tolist()
+    classes, class_names = preparar_classes(df.iloc[:, -1].tolist(), meta)
 
-    return atributos, classes
+    return atributos, classes, class_names
 
 
 def mlp_treino(x_train, y_train):
@@ -125,11 +152,9 @@ def run_individual_method(
     filename: str, split, method: Methods, METHOD_RESULTS: List[MethodResult]
 ):
     start = time.perf_counter()
-    features, classes_str = ler_arquivo(filename)
+    features, classes, class_names = ler_arquivo(filename)
     load_time = time.perf_counter() - start
 
-    classes = list(set(classes_str))
-    classes = np.array([classes.index(c) for c in classes_str])
     features_training, features_test, classes_training, classes_test = train_test_split(
         features, classes, test_size=split / 100, random_state=42, stratify=classes
     )
@@ -164,7 +189,7 @@ def run_individual_method(
         dataset_name=Path(filename).name,
         n_samples=len(classes),
         n_features=len(features[0]) if features else 0,
-        n_classes=len(set(classes_str)),
+        n_classes=len(class_names),
         n_train=len(features_training),
         n_test=len(features_test),
         test_split=split,
@@ -176,6 +201,7 @@ def run_individual_method(
         preprocessing=(
             "StandardScaler" if method == Methods.MULTILAYER_PERCEPTRON else None
         ),
+        class_names=class_names,
     )
     METHOD_RESULTS.append(results)
 

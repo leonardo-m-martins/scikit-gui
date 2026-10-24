@@ -48,6 +48,7 @@ class MethodResult:
         random_state: int | None = None,
         model_params: dict | None = None,
         preprocessing: str | None = None,
+        class_names: list[str] | None = None,
     ):
         self.method_name = method_name
         self.metrics = metrics
@@ -65,6 +66,7 @@ class MethodResult:
         self.random_state = random_state
         self.model_params = model_params or {}
         self.preprocessing = preprocessing
+        self.class_names = class_names or []
 
     @property
     def total_time(self) -> float | None:
@@ -76,7 +78,7 @@ class MethodResult:
         return f"{self.timestamp.strftime('%H:%M:%S')} - {self.method_name}"
 
 
-def ler_arquivo_generico(arquivo: str):
+def ler_arquivo_generico(arquivo: str, com_meta: bool = False):
     if arquivo.endswith(".arff"):
         data, meta = arff.loadarff(arquivo)
         df = pd.DataFrame(data)
@@ -85,6 +87,7 @@ def ler_arquivo_generico(arquivo: str):
             df[col] = df[col].apply(
                 lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
             )
-        return df
+        return (df, meta) if com_meta else df
     else:
-        return pd.read_csv(arquivo, header=None)
+        df = pd.read_csv(arquivo, header=None)
+        return (df, None) if com_meta else df
