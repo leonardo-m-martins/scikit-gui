@@ -5,7 +5,7 @@ from src.enums import Methods
 from src.ml_clas_sk import run_individual_method, run_all_methods
 from src.shared import MethodResult, Metrics, ClassificationMetrics, format_duration
 
-DEFAULT_FILE = "./data/spambase.data"
+DEFAULT_FILE = "./data/spambase.arff"
 METHOD_RESULTS: List[MethodResult] = []
 
 
