@@ -3,3 +3,6 @@ venv
 .idea
 __pycache__
 desktop.ini
+.pytest_cache/
+.coverage
+htmlcov/
