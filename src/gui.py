@@ -8,6 +8,34 @@ from src.shared import ClassificationMetrics, MethodResult, format_duration
 DEFAULT_FILE = "./data/spambase.arff"
 METHOD_RESULTS: list[MethodResult] = []
 
+SORT_NEWEST = "Mais novo"
+SORT_OLDEST = "Mais velho"
+SORT_OPTIONS = (SORT_NEWEST, SORT_OLDEST)
+
+METADATA_FIELDS = (
+    ("method", "Método:"),
+    ("timestamp", "Execução:"),
+    ("dataset", "Dataset:"),
+    ("samples", "Amostras:"),
+    ("features", "Features:"),
+    ("classes", "Classes:"),
+    ("split", "Divisão de teste:"),
+    ("train_test", "Treino / Teste:"),
+    ("load_time", "Tempo de carga:"),
+    ("train_time", "Tempo de treino:"),
+    ("test_time", "Tempo de teste:"),
+    ("total_time", "Tempo total:"),
+    ("random_state", "Random state:"),
+    ("preprocessing", "Pré-processamento:"),
+)
+
+METRIC_NAMES = {
+    "acc": "Acurácia",
+    "prec": "Precisão",
+    "rec": "Recall",
+    "f1": "F1-measure",
+}
+
 
 def open_file(path_entry):
     if filename := filedialog.askopenfilename():
@@ -95,6 +123,246 @@ class ScrollableFrame(ttk.Frame):
         return "break"
 
 
+class ResultsList(ttk.Frame):
+    def __init__(self, parent, on_select):
+        super().__init__(parent)
+        self._on_select = on_select
+        self._results = []
+        self.sort_var = tk.StringVar(value=SORT_NEWEST)
+
+        self.sort_box = ttk.Combobox(
+            self,
+            textvariable=self.sort_var,
+            values=SORT_OPTIONS,
+            state="readonly",
+        )
+        self.sort_box.pack(fill=tk.X, pady=(0, 5))
+
+        self.listbox = tk.Listbox(self, width=30)
+        self.listbox.pack(fill=tk.BOTH, expand=True)
+        self.listbox.bind("<<ListboxSelect>>", self._handle_select)
+        self.sort_var.trace_add("write", self._handle_sort)
+
+    def set_results(self, results):
+        self._results = list(results)
+        self._refresh()
+
+    def selected_result(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            return None
+        results = self._sorted_results()
+        index = selection[0]
+        if index >= len(results):
+            return None
+        return results[index]
+
+    def _sorted_results(self):
+        newest = self.sort_var.get() == SORT_NEWEST
+        return sorted(
+            self._results, key=lambda result: result.timestamp, reverse=newest
+        )
+
+    def _refresh(self):
+        self.listbox.delete(0, tk.END)
+        for result in self._sorted_results():
+            self.listbox.insert(tk.END, result.get_display_name())
+
+    def _handle_sort(self, *_args):
+        self._refresh()
+
+    def _handle_select(self, _event):
+        result = self.selected_result()
+        if result is not None:
+            self._on_select(result)
+
+
+class DetailsPanel(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(3, weight=1)
+
+        self.metadata = {}
+        for index, (key, text) in enumerate(METADATA_FIELDS):
+            row, column = divmod(index, 2)
+            ttk.Label(self, text=text, font=("", 9, "bold")).grid(
+                row=row, column=column * 2, sticky=tk.W, padx=(0, 5), pady=2
+            )
+            value = ttk.Label(self, text="-")
+            value.grid(
+                row=row, column=column * 2 + 1, sticky=tk.W, padx=(0, 20), pady=2
+            )
+            self.metadata[key] = value
+
+        params_row = (len(METADATA_FIELDS) + 1) // 2
+        ttk.Label(self, text="Hiperparâmetros:", font=("", 9, "bold")).grid(
+            row=params_row, column=0, sticky=tk.NW, pady=2
+        )
+        self.params_value = ttk.Label(self, text="-", wraplength=520, justify=tk.LEFT)
+        self.params_value.grid(
+            row=params_row, column=1, columnspan=3, sticky=tk.W, pady=2
+        )
+
+    def render(self, result):
+        self.metadata["method"].config(text=result.method_name)
+        self.metadata["timestamp"].config(
+            text=result.timestamp.strftime("%d/%m/%Y %H:%M:%S")
+        )
+        self.metadata["dataset"].config(text=result.dataset_name or "-")
+        self.metadata["samples"].config(
+            text="-" if result.n_samples is None else str(result.n_samples)
+        )
+        self.metadata["features"].config(
+            text="-" if result.n_features is None else str(result.n_features)
+        )
+        self.metadata["classes"].config(
+            text="-" if result.n_classes is None else str(result.n_classes)
+        )
+        self.metadata["split"].config(
+            text=f"{result.test_split:g}%" if result.test_split is not None else "-"
+        )
+        self.metadata["train_test"].config(
+            text=(
+                f"{result.n_train} / {result.n_test}"
+                if result.n_train is not None and result.n_test is not None
+                else "-"
+            )
+        )
+        self.metadata["load_time"].config(text=format_duration(result.load_time))
+        self.metadata["train_time"].config(text=format_duration(result.train_time))
+        self.metadata["test_time"].config(text=format_duration(result.test_time))
+        self.metadata["total_time"].config(text=format_duration(result.total_time))
+        self.metadata["random_state"].config(
+            text="-" if result.random_state is None else str(result.random_state)
+        )
+        self.metadata["preprocessing"].config(text=result.preprocessing or "-")
+        self.params_value.config(
+            text=", ".join(
+                f"{key}={value}" for key, value in result.model_params.items()
+            )
+            or "-"
+        )
+
+
+class ConfusionMatrixView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def clear(self):
+        for child in self.winfo_children():
+            child.destroy()
+        ttk.Label(self, text="-").grid(row=0, column=0, sticky=tk.W)
+
+    def render(self, matrix, class_names):
+        for child in self.winfo_children():
+            child.destroy()
+
+        rows = [list(row) for row in matrix]
+        size = len(rows)
+        if not size:
+            self.clear()
+            return
+
+        names = list(class_names or [])
+        if len(names) != size:
+            names = [f"Classe {index}" for index in range(size)]
+
+        self._make_cell("Real \\ Previsto", 0, 0, bold=True)
+        for column, name in enumerate(names, start=1):
+            self._make_cell(name, 0, column, bold=True)
+        for row, name in enumerate(names, start=1):
+            self._make_cell(name, row, 0, bold=True)
+            for column in range(size):
+                self._make_cell(str(int(rows[row - 1][column])), row, column + 1)
+
+        for column in range(size + 1):
+            self.columnconfigure(column, weight=1)
+
+    def _make_cell(self, text, row, column, bold=False):
+        cell = ttk.Label(
+            self,
+            text=text,
+            relief="solid",
+            borderwidth=1,
+            padding=(8, 4),
+            anchor=tk.CENTER,
+            justify=tk.CENTER,
+            font=("", 9, "bold" if bold else "normal"),
+        )
+        cell.grid(row=row, column=column, sticky="nsew")
+
+
+class MetricsPanel(ttk.LabelFrame):
+    def __init__(self, parent):
+        super().__init__(parent, text=" 📊 Métricas (média macro) ", padding=10)
+
+        self.metric_labels = {
+            key: ttk.Label(self, text=f"{name}: -", font=("", 10, "bold"))
+            for key, name in METRIC_NAMES.items()
+        }
+        for label in self.metric_labels.values():
+            label.pack(anchor=tk.W, pady=3)
+
+        ttk.Label(self, text="Matriz de Confusão:", font=("", 10, "bold")).pack(
+            anchor=tk.W, pady=(8, 4)
+        )
+        self.confusion = ConfusionMatrixView(self)
+        self.confusion.pack(fill=tk.X)
+        self.confusion.clear()
+
+    def render(self, result):
+        if isinstance(result.metrics, ClassificationMetrics):
+            metrics = result.metrics
+            self.metric_labels["acc"].config(
+                text=f"Acurácia: {metrics.accuracy*100:.2f}%"
+            )
+            self.metric_labels["prec"].config(
+                text=f"Precisão: {metrics.precision*100:.2f}%"
+            )
+            self.metric_labels["rec"].config(text=f"Recall: {metrics.recall*100:.2f}%")
+            self.metric_labels["f1"].config(text=f"F1-measure: {metrics.f1*100:.2f}%")
+            self.confusion.render(metrics.confusion_matrix, result.class_names)
+            return
+
+        for key, name in METRIC_NAMES.items():
+            self.metric_labels[key].config(text=f"{name}: -")
+        self.confusion.clear()
+
+
+class ResultsView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        left_pane = ttk.Frame(self)
+        left_pane.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        self.results_list = ResultsList(left_pane, on_select=self.show_result)
+        self.results_list.pack(fill=tk.BOTH, expand=True)
+
+        self.right_pane = ttk.LabelFrame(
+            self, text=" 📈 Detalhes da Avaliação ", padding=15
+        )
+        self.right_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scroll_frame = ScrollableFrame(self.right_pane)
+        scroll_frame.pack(fill=tk.BOTH, expand=True)
+        content = scroll_frame.content
+
+        self.details = DetailsPanel(content)
+        self.details.pack(fill=tk.X)
+
+        self.metrics = MetricsPanel(content)
+        self.metrics.pack(fill=tk.X, pady=(15, 0))
+
+    def refresh(self, results):
+        self.results_list.set_results(results)
+
+    def show_result(self, result):
+        self.right_pane.config(text=f" 📈 {result.method_name} ")
+        self.details.render(result)
+        self.metrics.render(result)
+
+
 def top_menu(parent):
     frm = ttk.LabelFrame(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
     frm.pack(fill=tk.X, padx=20, pady=20)
@@ -155,212 +423,10 @@ def top_menu(parent):
 
 
 def results_menu(parent):
-    container = ttk.Frame(parent)
-    container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-
-    left_pane = ttk.Frame(container)
-    left_pane.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
-
-    sort_var = tk.StringVar(value="Mais novo")
-    ttk.Combobox(
-        left_pane,
-        textvariable=sort_var,
-        values=["Mais novo", "Mais velho"],
-        state="readonly",
-    ).pack(fill=tk.X, pady=(0, 5))
-
-    listbox = tk.Listbox(left_pane, width=30)
-    listbox.pack(fill=tk.BOTH, expand=True)
-
-    right_pane = ttk.LabelFrame(
-        container, text=" 📈 Detalhes da Avaliação ", padding=15
-    )
-    right_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-    scroll_frame = ScrollableFrame(right_pane)
-    scroll_frame.pack(fill=tk.BOTH, expand=True)
-    content = scroll_frame.content
-
-    details = ttk.Frame(content)
-    details.pack(fill=tk.X)
-    details.columnconfigure(1, weight=1)
-    details.columnconfigure(3, weight=1)
-
-    metadata_fields = [
-        ("method", "Método:"),
-        ("timestamp", "Execução:"),
-        ("dataset", "Dataset:"),
-        ("samples", "Amostras:"),
-        ("features", "Features:"),
-        ("classes", "Classes:"),
-        ("split", "Divisão de teste:"),
-        ("train_test", "Treino / Teste:"),
-        ("load_time", "Tempo de carga:"),
-        ("train_time", "Tempo de treino:"),
-        ("test_time", "Tempo de teste:"),
-        ("total_time", "Tempo total:"),
-        ("random_state", "Random state:"),
-        ("preprocessing", "Pré-processamento:"),
-    ]
-
-    metadata = {}
-    for index, (key, text) in enumerate(metadata_fields):
-        row, col = divmod(index, 2)
-        ttk.Label(details, text=text, font=("", 9, "bold")).grid(
-            row=row, column=col * 2, sticky=tk.W, padx=(0, 5), pady=2
-        )
-        value = ttk.Label(details, text="-")
-        value.grid(row=row, column=col * 2 + 1, sticky=tk.W, padx=(0, 20), pady=2)
-        metadata[key] = value
-
-    params_row = (len(metadata_fields) + 1) // 2
-    ttk.Label(details, text="Hiperparâmetros:", font=("", 9, "bold")).grid(
-        row=params_row, column=0, sticky=tk.NW, pady=2
-    )
-    params_value = ttk.Label(details, text="-", wraplength=520, justify=tk.LEFT)
-    params_value.grid(row=params_row, column=1, columnspan=3, sticky=tk.W, pady=2)
-
-    metrics_frame = ttk.LabelFrame(
-        content, text=" 📊 Métricas (média macro) ", padding=10
-    )
-    metrics_frame.pack(fill=tk.X, pady=(15, 0))
-
-    metric_names = {
-        "acc": "Acurácia",
-        "prec": "Precisão",
-        "rec": "Recall",
-        "f1": "F1-measure",
-    }
-    metric_labels = {
-        key: ttk.Label(metrics_frame, text=f"{name}: -", font=("", 10, "bold"))
-        for key, name in metric_names.items()
-    }
-    for lbl in metric_labels.values():
-        lbl.pack(anchor=tk.W, pady=3)
-
-    ttk.Label(metrics_frame, text="Matriz de Confusão:", font=("", 10, "bold")).pack(
-        anchor=tk.W, pady=(8, 4)
-    )
-    cm_container = ttk.Frame(metrics_frame)
-    cm_container.pack(fill=tk.X)
-
-    def clear_confusion_matrix():
-        for child in cm_container.winfo_children():
-            child.destroy()
-        ttk.Label(cm_container, text="-").grid(row=0, column=0, sticky=tk.W)
-
-    def render_confusion_matrix(matrix, class_names):
-        for child in cm_container.winfo_children():
-            child.destroy()
-
-        rows = [list(row) for row in matrix]
-        size = len(rows)
-        if not size:
-            clear_confusion_matrix()
-            return
-
-        names = list(class_names or [])
-        if len(names) != size:
-            names = [f"Classe {index}" for index in range(size)]
-
-        def make_cell(text, row, column, bold=False):
-            cell = ttk.Label(
-                cm_container,
-                text=text,
-                relief="solid",
-                borderwidth=1,
-                padding=(8, 4),
-                anchor=tk.CENTER,
-                justify=tk.CENTER,
-                font=("", 9, "bold" if bold else "normal"),
-            )
-            cell.grid(row=row, column=column, sticky="nsew")
-
-        make_cell("Real \\ Previsto", 0, 0, bold=True)
-        for column, name in enumerate(names, start=1):
-            make_cell(name, 0, column, bold=True)
-        for row, name in enumerate(names, start=1):
-            make_cell(name, row, 0, bold=True)
-            for column in range(size):
-                make_cell(str(int(rows[row - 1][column])), row, column + 1)
-
-        for column in range(size + 1):
-            cm_container.columnconfigure(column, weight=1)
-
-    clear_confusion_matrix()
-
-    def update_ui(*args):
-        listbox.delete(0, tk.END)
-        is_newest = sort_var.get() == "Mais novo"
-        for res in sorted(METHOD_RESULTS, key=lambda x: x.timestamp, reverse=is_newest):
-            listbox.insert(tk.END, res.get_display_name())
-
-    def on_select(event):
-        if not listbox.curselection():
-            return
-        idx = listbox.curselection()[0]
-        is_newest = sort_var.get() == "Mais novo"
-        selected = sorted(METHOD_RESULTS, key=lambda x: x.timestamp, reverse=is_newest)[
-            idx
-        ]
-
-        metadata["method"].config(text=selected.method_name)
-        metadata["timestamp"].config(
-            text=selected.timestamp.strftime("%d/%m/%Y %H:%M:%S")
-        )
-        metadata["dataset"].config(text=selected.dataset_name or "-")
-        metadata["samples"].config(
-            text="-" if selected.n_samples is None else str(selected.n_samples)
-        )
-        metadata["features"].config(
-            text="-" if selected.n_features is None else str(selected.n_features)
-        )
-        metadata["classes"].config(
-            text="-" if selected.n_classes is None else str(selected.n_classes)
-        )
-        metadata["split"].config(
-            text=(
-                f"{selected.test_split:g}%" if selected.test_split is not None else "-"
-            )
-        )
-        metadata["train_test"].config(
-            text=(
-                f"{selected.n_train} / {selected.n_test}"
-                if selected.n_train is not None and selected.n_test is not None
-                else "-"
-            )
-        )
-        metadata["load_time"].config(text=format_duration(selected.load_time))
-        metadata["train_time"].config(text=format_duration(selected.train_time))
-        metadata["test_time"].config(text=format_duration(selected.test_time))
-        metadata["total_time"].config(text=format_duration(selected.total_time))
-        metadata["random_state"].config(
-            text="-" if selected.random_state is None else str(selected.random_state)
-        )
-        metadata["preprocessing"].config(text=selected.preprocessing or "-")
-        params_value.config(
-            text=", ".join(
-                f"{key}={value}" for key, value in selected.model_params.items()
-            )
-            or "-"
-        )
-        right_pane.config(text=f" 📈 {selected.method_name} ")
-
-        if isinstance(selected.metrics, ClassificationMetrics):
-            m = selected.metrics
-            metric_labels["acc"].config(text=f"Acurácia: {m.accuracy*100:.2f}%")
-            metric_labels["prec"].config(text=f"Precisão: {m.precision*100:.2f}%")
-            metric_labels["rec"].config(text=f"Recall: {m.recall*100:.2f}%")
-            metric_labels["f1"].config(text=f"F1-measure: {m.f1*100:.2f}%")
-            render_confusion_matrix(m.confusion_matrix, selected.class_names)
-        else:
-            for key, name in metric_names.items():
-                metric_labels[key].config(text=f"{name}: -")
-            clear_confusion_matrix()
-
-    listbox.bind("<<ListboxSelect>>", on_select)
-    sort_var.trace_add("write", update_ui)
-    parent.bind("<<UpdateResults>>", update_ui)
+    view = ResultsView(parent)
+    view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+    parent.bind("<<UpdateResults>>", lambda _event: view.refresh(METHOD_RESULTS))
+    return view
 
 
 def main():
