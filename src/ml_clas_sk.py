@@ -8,6 +8,7 @@ from sklearn import metrics as me
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
@@ -74,6 +75,9 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
         {"random_state": 42},
         ("n_estimators", "learning_rate"),
     ),
+    Methods.GAUSSIAN_NAIVE_BAYES: ModelSpec(GaussianNB),
+    Methods.MULTI_NAIVE_BAYES: ModelSpec(MultinomialNB),
+    Methods.COMPLEMENT_NAIVE_BAYES: ModelSpec(ComplementNB),
 }
 
 MODEL_PARAM_KEYS = {spec.model_type: spec.display_keys for spec in MODEL_SPECS.values()}

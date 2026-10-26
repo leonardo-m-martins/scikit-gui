@@ -2,7 +2,9 @@ from enum import Enum
 
 
 class Methods(str, Enum):
-    NAIVE_BAYES = "Naive Bayes"
+    GAUSSIAN_NAIVE_BAYES = "Gaussian Naive Bayes"
+    MULTI_NAIVE_BAYES = "Multinomial Naive Bayes"
+    COMPLEMENT_NAIVE_BAYES = "Complement Naive Bayes"
     LOGISTICS = "Logistics"
     MULTILAYER_PERCEPTRON = "Multilayer Perceptron"
     SMO = "SMO"
