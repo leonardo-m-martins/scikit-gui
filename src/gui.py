@@ -6,7 +6,6 @@ from src.ml_clas_sk import run_all_methods, run_individual_method
 from src.shared import ClassificationMetrics, MethodResult, format_duration
 
 DEFAULT_FILE = "./data/spambase.arff"
-METHOD_RESULTS: list[MethodResult] = []
 
 SORT_NEWEST = "Mais novo"
 SORT_OLDEST = "Mais velho"
@@ -35,12 +34,6 @@ METRIC_NAMES = {
     "rec": "Recall",
     "f1": "F1-measure",
 }
-
-
-def open_file(path_entry):
-    if filename := filedialog.askopenfilename():
-        path_entry.delete(0, tk.END)
-        path_entry.insert(0, filename)
 
 
 class ScrollableFrame(ttk.Frame):
@@ -363,70 +356,95 @@ class ResultsView(ttk.Frame):
         self.metrics.render(result)
 
 
-def top_menu(parent):
-    frm = ttk.LabelFrame(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
-    frm.pack(fill=tk.X, padx=20, pady=20)
-    frm.columnconfigure(1, weight=1)
+class ConfigPanel(ttk.LabelFrame):
+    def __init__(self, parent, on_run_selected, on_run_all):
+        super().__init__(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
+        self._on_run_selected = on_run_selected
+        self._on_run_all = on_run_all
 
-    ttk.Label(frm, text="📁 Arquivo de Dados:").grid(
-        row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10)
-    )
-    path_entry = ttk.Entry(frm)
-    path_entry.grid(row=0, column=1, sticky=tk.EW, pady=(0, 10), padx=(0, 10))
-    path_entry.delete(0, tk.END)
-    path_entry.insert(0, DEFAULT_FILE)
-    ttk.Button(frm, text="🔍 Procurar", command=lambda: open_file(path_entry)).grid(
-        row=0, column=2, pady=(0, 10)
-    )
+        self.path_var = tk.StringVar(value=DEFAULT_FILE)
+        self.method_var = tk.StringVar()
+        self.split_var = tk.IntVar(value=20)
+        self.columnconfigure(1, weight=1)
 
-    ttk.Label(frm, text="🛠️ Método:").grid(
-        row=1, column=0, sticky=tk.W, pady=10, padx=(0, 10)
-    )
-    method_box = ttk.Combobox(frm, values=Methods.values(), state="readonly")
-    method_box.grid(row=1, column=1, columnspan=2, sticky=tk.EW, pady=10)
-
-    ttk.Label(frm, text="📊 % de Teste:").grid(
-        row=2, column=0, sticky=tk.W, pady=10, padx=(0, 10)
-    )
-    percentage_box = ttk.Spinbox(frm, from_=0, to=100, increment=1)
-    percentage_box.grid(row=2, column=1, columnspan=2, sticky=tk.EW, pady=10)
-    percentage_box.set(20)
-
-    action_frame = ttk.Frame(frm)
-    action_frame.grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
-
-    # Trigger ML methods and notify the parent window to update the results UI
-    def execute_single():
-        run_individual_method(
-            path_entry.get(),
-            int(percentage_box.get()),
-            method_box.get(),
-            METHOD_RESULTS,
+        ttk.Label(self, text="📁 Arquivo de Dados:").grid(
+            row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10)
         )
-        parent.event_generate("<<UpdateResults>>")
+        ttk.Entry(self, textvariable=self.path_var).grid(
+            row=0, column=1, sticky=tk.EW, pady=(0, 10), padx=(0, 10)
+        )
+        ttk.Button(self, text="🔍 Procurar", command=self._browse).grid(
+            row=0, column=2, pady=(0, 10)
+        )
 
-    def execute_all():
-        run_all_methods(path_entry.get(), int(percentage_box.get()), METHOD_RESULTS)
-        parent.event_generate("<<UpdateResults>>")
+        ttk.Label(self, text="🛠️ Método:").grid(
+            row=1, column=0, sticky=tk.W, pady=10, padx=(0, 10)
+        )
+        ttk.Combobox(
+            self,
+            textvariable=self.method_var,
+            values=Methods.values(),
+            state="readonly",
+        ).grid(row=1, column=1, columnspan=2, sticky=tk.EW, pady=10)
 
-    ttk.Button(
-        action_frame,
-        text="▶️ Executar Selecionado",
-        command=execute_single,
-    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        ttk.Label(self, text="📊 % de Teste:").grid(
+            row=2, column=0, sticky=tk.W, pady=10, padx=(0, 10)
+        )
+        ttk.Spinbox(
+            self,
+            textvariable=self.split_var,
+            from_=0,
+            to=100,
+            increment=1,
+        ).grid(row=2, column=1, columnspan=2, sticky=tk.EW, pady=10)
 
-    ttk.Button(
-        action_frame,
-        text="🚀 Executar Todos",
-        command=execute_all,
-    ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
+        action_frame = ttk.Frame(self)
+        action_frame.grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
+
+        ttk.Button(
+            action_frame,
+            text="▶️ Executar Selecionado",
+            command=self._on_run_selected,
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+
+        ttk.Button(
+            action_frame,
+            text="🚀 Executar Todos",
+            command=self._on_run_all,
+        ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
+
+    def get_values(self):
+        return self.path_var.get(), int(self.split_var.get()), self.method_var.get()
+
+    def _browse(self):
+        if filename := filedialog.askopenfilename():
+            self.path_var.set(filename)
 
 
-def results_menu(parent):
-    view = ResultsView(parent)
-    view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-    parent.bind("<<UpdateResults>>", lambda _event: view.refresh(METHOD_RESULTS))
-    return view
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.results: list[MethodResult] = []
+
+        self.config = ConfigPanel(
+            root,
+            on_run_selected=self.run_selected,
+            on_run_all=self.run_all,
+        )
+        self.config.pack(fill=tk.X, padx=20, pady=20)
+
+        self.results_view = ResultsView(root)
+        self.results_view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+
+    def run_selected(self):
+        path, split, method = self.config.get_values()
+        run_individual_method(path, split, method, self.results)
+        self.results_view.refresh(self.results)
+
+    def run_all(self):
+        path, split, _method = self.config.get_values()
+        run_all_methods(path, split, self.results)
+        self.results_view.refresh(self.results)
 
 
 def main():
@@ -438,8 +456,7 @@ def main():
     style = ttk.Style(root)
     style.theme_use("clam")
 
-    top_menu(root)
-    results_menu(root)
+    App(root)
 
     root.mainloop()
 

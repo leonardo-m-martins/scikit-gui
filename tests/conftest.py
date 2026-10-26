@@ -13,14 +13,6 @@ from src import gui
 from src.shared import ClassificationMetrics, MethodResult
 
 
-@pytest.fixture(autouse=True)
-def restore_method_results():
-    saved = list(gui.METHOD_RESULTS)
-    gui.METHOD_RESULTS.clear()
-    yield
-    gui.METHOD_RESULTS[:] = saved
-
-
 @pytest.fixture
 def arff_factory(tmp_path):
     def make(rows, labels=("yes", "no"), numeric_class=False, name="tiny"):
@@ -103,7 +95,6 @@ def tk_root():
 
 @pytest.fixture
 def results_app(tk_root):
-    gui.top_menu(tk_root)
-    gui.results_menu(tk_root)
+    tk_root.app = gui.App(tk_root)
     tk_root.update()
     return tk_root

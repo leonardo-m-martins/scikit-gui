@@ -39,7 +39,7 @@ def find_button(widget: tk.Misc, text: str) -> tk.Misc:
 
 
 def refresh_results(root: tk.Misc) -> None:
-    root.event_generate("<<UpdateResults>>")
+    root.app.results_view.refresh(root.app.results)
     root.update()
 
 
