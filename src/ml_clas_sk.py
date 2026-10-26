@@ -66,7 +66,7 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
             "min_samples_leaf",
         ),
     ),
-    Methods.PART: ModelSpec(
+    Methods.DECISION_TREE: ModelSpec(
         DecisionTreeClassifier,
         {"criterion": "entropy", "random_state": 42},
         ("criterion", "max_depth"),

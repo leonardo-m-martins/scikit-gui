@@ -186,7 +186,7 @@ def test_get_model_params_reports_best_n_iter():
     "method",
     [
         Methods.RANDOM_FOREST.value,
-        Methods.PART.value,
+        Methods.DECISION_TREE.value,
         Methods.ADABOOSTM1.value,
         pytest.param(
             Methods.MULTILAYER_PERCEPTRON.value,
@@ -240,7 +240,7 @@ def test_run_individual_method_unsupported_model_is_noop(tiny_arff):
     "method",
     [
         Methods.RANDOM_FOREST.value,
-        Methods.PART.value,
+        Methods.DECISION_TREE.value,
         Methods.ADABOOSTM1.value,
     ],
 )

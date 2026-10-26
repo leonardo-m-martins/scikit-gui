@@ -13,7 +13,7 @@ class Methods(str, Enum):
     LOGITBOOST = "Logitboost"
     VOTE = "Vote"
     DECISION_TABLE = "Decision table"
-    PART = "PART"
+    DECISION_TREE = "Decision Tree"
     J48 = "J48"
     RANDOM_FOREST = "Random Forest"
 

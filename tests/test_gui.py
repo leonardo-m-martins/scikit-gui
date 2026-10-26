@@ -195,9 +195,9 @@ def test_execute_selected_passes_ui_values(results_app, monkeypatch, tmp_path):
     method_box = next(
         widget
         for widget in find_widgets(results_app, "TCombobox")
-        if Methods.PART.value in widget.cget("values")
+        if Methods.DECISION_TREE.value in widget.cget("values")
     )
-    method_box.set(Methods.PART.value)
+    method_box.set(Methods.DECISION_TREE.value)
     find_widget(results_app, "TSpinbox").set(30)
 
     find_button(results_app, "Executar Selecionado").invoke()
@@ -206,7 +206,7 @@ def test_execute_selected_passes_ui_values(results_app, monkeypatch, tmp_path):
     called_path, split, method, results = calls[0]
     assert called_path == path
     assert split == 30
-    assert method == Methods.PART.value
+    assert method == Methods.DECISION_TREE.value
     assert results is gui.METHOD_RESULTS
 
 
