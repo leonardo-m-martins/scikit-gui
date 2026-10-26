@@ -216,5 +216,5 @@ def run_individual_method(
 
 
 def run_all_methods(filename: str, split: int, METHOD_RESULTS: list[MethodResult]):
-    for method in Methods:
+    for method in Methods.values():
         run_individual_method(filename, split, method, METHOD_RESULTS)
