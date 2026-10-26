@@ -7,6 +7,7 @@ import numpy as np
 from sklearn import metrics as me
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
@@ -78,6 +79,12 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.GAUSSIAN_NAIVE_BAYES: ModelSpec(GaussianNB),
     Methods.MULTI_NAIVE_BAYES: ModelSpec(MultinomialNB),
     Methods.COMPLEMENT_NAIVE_BAYES: ModelSpec(ComplementNB),
+    Methods.LOGISTICS: ModelSpec(
+        LogisticRegression,
+        {"random_state": 42, "max_iter": 10000},
+        ("max_iter"),
+        preprocessing="StandardScaler",
+    ),
 }
 
 MODEL_PARAM_KEYS = {spec.model_type: spec.display_keys for spec in MODEL_SPECS.values()}
