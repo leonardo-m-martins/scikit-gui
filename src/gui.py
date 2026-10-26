@@ -35,6 +35,22 @@ METRIC_NAMES = {
     "f1": "F1-measure",
 }
 
+STYLE_METADATA = "Metadata.TLabel"
+STYLE_METRIC = "Metric.TLabel"
+STYLE_SECTION = "Section.TLabel"
+STYLE_MATRIX_HEADER = "MatrixHeader.TLabel"
+STYLE_MATRIX_CELL = "MatrixCell.TLabel"
+
+
+def configure_styles(root):
+    style = ttk.Style(root)
+    style.theme_use("clam")
+    style.configure(STYLE_METADATA, font=("", 9, "bold"))
+    style.configure(STYLE_METRIC, font=("", 10, "bold"))
+    style.configure(STYLE_SECTION, font=("", 10, "bold"))
+    style.configure(STYLE_MATRIX_HEADER, font=("", 9, "bold"))
+    style.configure(STYLE_MATRIX_CELL, font=("", 9))
+
 
 class ScrollableFrame(ttk.Frame):
     def __init__(self, parent):
@@ -179,7 +195,7 @@ class DetailsPanel(ttk.Frame):
         self.metadata = {}
         for index, (key, text) in enumerate(METADATA_FIELDS):
             row, column = divmod(index, 2)
-            ttk.Label(self, text=text, font=("", 9, "bold")).grid(
+            ttk.Label(self, text=text, style=STYLE_METADATA).grid(
                 row=row, column=column * 2, sticky=tk.W, padx=(0, 5), pady=2
             )
             value = ttk.Label(self, text="-")
@@ -189,7 +205,7 @@ class DetailsPanel(ttk.Frame):
             self.metadata[key] = value
 
         params_row = (len(METADATA_FIELDS) + 1) // 2
-        ttk.Label(self, text="Hiperparâmetros:", font=("", 9, "bold")).grid(
+        ttk.Label(self, text="Hiperparâmetros:", style=STYLE_METADATA).grid(
             row=params_row, column=0, sticky=tk.NW, pady=2
         )
         self.params_value = ttk.Label(self, text="-", wraplength=520, justify=tk.LEFT)
@@ -276,12 +292,12 @@ class ConfusionMatrixView(ttk.Frame):
         cell = ttk.Label(
             self,
             text=text,
+            style=STYLE_MATRIX_HEADER if bold else STYLE_MATRIX_CELL,
             relief="solid",
             borderwidth=1,
             padding=(8, 4),
             anchor=tk.CENTER,
             justify=tk.CENTER,
-            font=("", 9, "bold" if bold else "normal"),
         )
         cell.grid(row=row, column=column, sticky="nsew")
 
@@ -291,13 +307,13 @@ class MetricsPanel(ttk.LabelFrame):
         super().__init__(parent, text=" 📊 Métricas (média macro) ", padding=10)
 
         self.metric_labels = {
-            key: ttk.Label(self, text=f"{name}: -", font=("", 10, "bold"))
+            key: ttk.Label(self, text=f"{name}: -", style=STYLE_METRIC)
             for key, name in METRIC_NAMES.items()
         }
         for label in self.metric_labels.values():
             label.pack(anchor=tk.W, pady=3)
 
-        ttk.Label(self, text="Matriz de Confusão:", font=("", 10, "bold")).pack(
+        ttk.Label(self, text="Matriz de Confusão:", style=STYLE_SECTION).pack(
             anchor=tk.W, pady=(8, 4)
         )
         self.confusion = ConfusionMatrixView(self)
@@ -425,6 +441,7 @@ class App:
     def __init__(self, root):
         self.root = root
         self.results: list[MethodResult] = []
+        configure_styles(root)
 
         self.config = ConfigPanel(
             root,
@@ -442,7 +459,7 @@ class App:
         self.results_view.refresh(self.results)
 
     def run_all(self):
-        path, split, _method = self.config.get_values()
+        path, split, _ = self.config.get_values()
         run_all_methods(path, split, self.results)
         self.results_view.refresh(self.results)
 
@@ -452,9 +469,6 @@ def main():
     root.title("📊 Classificação e Regressão")
     root.geometry("860x760")
     root.minsize(700, 620)
-
-    style = ttk.Style(root)
-    style.theme_use("clam")
 
     App(root)
 
