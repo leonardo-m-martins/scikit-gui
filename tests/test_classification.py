@@ -13,6 +13,7 @@ from src.ml_clas_sk import (
     metricas,
     preparar_classes,
     run_individual_method,
+    train_model,
 )
 from src.shared import ler_arquivo_generico
 
@@ -81,6 +82,22 @@ def test_ler_arquivo(tiny_arff):
     assert len(features) == len(classes) == 40
     assert all(len(row) == 2 for row in features)
     assert class_names == ["yes", "no"]
+
+
+def test_train_model_instantiates_and_fits(tiny_arff):
+    features, classes, _ = ler_arquivo(str(tiny_arff))
+
+    model = train_model(
+        DecisionTreeClassifier,
+        {"criterion": "entropy", "max_depth": 2},
+        features,
+        classes,
+    )
+
+    assert isinstance(model, DecisionTreeClassifier)
+    assert model.criterion == "entropy"
+    assert model.max_depth == 2
+    assert model.classes_.tolist() == [0, 1]
 
 
 def test_metricas_binary_known_values():
