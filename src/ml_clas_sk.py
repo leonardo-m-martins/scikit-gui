@@ -1,5 +1,5 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -19,8 +19,8 @@ from src.shared import ClassificationMetrics, MethodResult, ler_arquivo_generico
 @dataclass(frozen=True)
 class ModelSpec:
     model_type: type[BaseEstimator]
-    params: dict[str, Any]
-    display_keys: tuple[str, ...]
+    params: dict[str, Any] = field(default_factory=dict)
+    display_keys: tuple[str, ...] = ()
     preprocessing: str | None = None
 
 
