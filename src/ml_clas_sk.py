@@ -12,6 +12,30 @@ from sklearn.tree import DecisionTreeClassifier
 from src.enums import Methods
 from src.shared import ClassificationMetrics, MethodResult, ler_arquivo_generico
 
+SUPPORTED_MODELS = (
+    MLPClassifier | RandomForestClassifier | DecisionTreeClassifier | AdaBoostClassifier
+)
+
+MODEL_PARAM_KEYS = {
+    MLPClassifier: (
+        "hidden_layer_sizes",
+        "activation",
+        "solver",
+        "alpha",
+        "learning_rate",
+        "max_iter",
+    ),
+    RandomForestClassifier: (
+        "n_estimators",
+        "criterion",
+        "max_depth",
+        "min_samples_split",
+        "min_samples_leaf",
+    ),
+    DecisionTreeClassifier: ("criterion", "max_depth"),
+    AdaBoostClassifier: ("n_estimators", "learning_rate"),
+}
+
 
 def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
     cm = me.confusion_matrix(y_teste, y_pred)
@@ -97,31 +121,6 @@ def ada_boost_training(feat_train, class_train):
     model = AdaBoostClassifier(random_state=42)
     model.fit(feat_train, class_train)
     return model
-
-
-SUPPORTED_MODELS = (
-    MLPClassifier | RandomForestClassifier | DecisionTreeClassifier | AdaBoostClassifier
-)
-
-MODEL_PARAM_KEYS = {
-    MLPClassifier: (
-        "hidden_layer_sizes",
-        "activation",
-        "solver",
-        "alpha",
-        "learning_rate",
-        "max_iter",
-    ),
-    RandomForestClassifier: (
-        "n_estimators",
-        "criterion",
-        "max_depth",
-        "min_samples_split",
-        "min_samples_leaf",
-    ),
-    DecisionTreeClassifier: ("criterion", "max_depth"),
-    AdaBoostClassifier: ("n_estimators", "learning_rate"),
-}
 
 
 def get_model_params(model: SUPPORTED_MODELS) -> dict:
