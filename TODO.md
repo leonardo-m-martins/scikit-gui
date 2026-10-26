@@ -1,6 +1,32 @@
 - [x] R01 Aceitar arquivos no formato arff do weka
 - [x] R02 Determinar dataset para regressão
 - [ ] R03 Adicionar suporte a todos os Métodos Classifier que se adequem do scikit
+  - [x] Naive Bayes: Gaussian → GaussianNB, Multinomial → MultinomialNB e Complement → ComplementNB.
+  - [x] Lineares e neurais: Logistics → LogisticRegression e Multilayer Perceptron → MLPClassifier.
+  - [ ] SVM e ensembles:
+    - [ ] SMO → SVC
+    - [x] AdaBoostM1 → AdaBoostClassifier
+    - [ ] Vote → VotingClassifier
+    - [x] Decision Tree → DecisionTreeClassifier
+    - [x] Random Forest → RandomForestClassifier
+  - [ ] Usar SVC com kernel linear para aproximar o padrão do Weka.
+  - Sem equivalente direto: KStar, Logitboost, Decision table e J48.
+  - [ ] Análogos, não equivalentes:
+    - [ ] KNeighborsClassifier para KStar
+    - [ ] GradientBoostingClassifier com log loss para Logitboost
+    - [ ] DecisionTreeClassifier com criterion entropy para J48
+  - Multinomial e Complement exigem features não negativas; SVC, LogisticRegression e MLPClassifier precisam de padronização.
+  - Vote exige estimadores base definidos.
+  - [x] Ignorar métodos sem suporte em run_all_methods sem interromper a execução.
 - [ ] R04 Adicionar suporte a todos os Métodos Regressor que se adequem do scikit
+  - [ ] Integrar ml_reg_sk.py à aplicação; hoje ele é um script isolado.
+  - [ ] Lineares: LinearRegression, Ridge, Lasso e ElasticNet.
+  - [ ] Vizinhos e árvores: KNeighborsRegressor, DecisionTreeRegressor, RandomForestRegressor e ExtraTreesRegressor.
+  - [ ] Outros: HistGradientBoostingRegressor, SVR, HuberRegressor e MLPRegressor.
+  - [ ] Opcionais: PLSRegression, GaussianProcessRegressor, GradientBoostingRegressor, AdaBoostRegressor, SGDRegressor, LinearSVR e DummyRegressor.
+  - [ ] Casos específicos, só se o target justificar: QuantileRegressor, RANSACRegressor, TheilSenRegressor, PoissonRegressor, GammaRegressor e TweedieRegressor.
+  - [ ] Usar MAE, MSE, RMSE e R²; padronizar features para modelos sensíveis a escala.
+  - [ ] Ajustar o scaler apenas no treino e aplicar no teste.
+  - [ ] Não incluir tuning automático; expor apenas parâmetros relevantes.
 - [ ] R05 Suporte a atributos categóricos/textuais nas features de arquivos ARFF (One-Hot Encoding / Label Encoding)
 - [ ] R06 Tratamento de valores ausentes (missing values / `?`) em datasets ARFF
