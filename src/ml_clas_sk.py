@@ -182,7 +182,7 @@ def run_individual_method(
     if spec.preprocessing == "StandardScaler":
         scaler = StandardScaler()
         features_training = scaler.fit_transform(features_training)
-        features_test = scaler.fit_transform(features_test)
+        features_test = scaler.transform(features_test)
 
     start = time.perf_counter()
     model = train_model(
