@@ -5,7 +5,7 @@ import pytest
 from src.shared import (
     ClassificationMetrics,
     MethodResult,
-    format_duration,
+    format_metadata,
     ler_arquivo_generico,
 )
 
@@ -14,16 +14,16 @@ from src.shared import (
     ("seconds", "expected"),
     [
         (None, "-"),
-        (0, "0.00 ms"),
+        (0.0, "0.00 ms"),
         (0.099, "99.00 ms"),
         (0.1, "0.10 s"),
         (59.99, "59.99 s"),
-        (60, "1 min 0.00 s"),
+        (60.0, "1 min 0.00 s"),
         (72.4, "1 min 12.40 s"),
     ],
 )
 def test_format_duration(seconds, expected):
-    assert format_duration(seconds) == expected
+    assert format_metadata(seconds) == expected
 
 
 def test_method_result_defaults():

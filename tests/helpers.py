@@ -19,12 +19,14 @@ def find_widget(widget: tk.Misc, widget_class: str) -> tk.Misc:
 
 
 def label_texts(widget: tk.Misc) -> list[str]:
-    return [item.cget("text") for item in find_widgets(widget, "TLabel")]
+    return [str(item.cget("text")) for item in find_widgets(widget, "TLabel")]
 
 
 def find_label(widget: tk.Misc, text: str) -> tk.Misc:
     matches = [
-        item for item in find_widgets(widget, "TLabel") if text in item.cget("text")
+        item
+        for item in find_widgets(widget, "TLabel")
+        if text in str(item.cget("text"))
     ]
     assert matches, f"label containing {text!r} not found"
     return matches[0]
@@ -32,7 +34,9 @@ def find_label(widget: tk.Misc, text: str) -> tk.Misc:
 
 def find_button(widget: tk.Misc, text: str) -> tk.Misc:
     matches = [
-        item for item in find_widgets(widget, "TButton") if text in item.cget("text")
+        item
+        for item in find_widgets(widget, "TButton")
+        if text in str(item.cget("text"))
     ]
     assert matches, f"button containing {text!r} not found"
     return matches[0]

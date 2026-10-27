@@ -168,7 +168,7 @@ def test_sorting_changes_listbox_order(results_app, result_factory):
     sort_box = next(
         widget
         for widget in find_widgets(results_app, "TCombobox")
-        if "Mais novo" in widget.cget("values")
+        if "Mais novo" in str(widget.cget("values"))
     )
     sort_box.set("Mais velho")
     results_app.update()
@@ -208,7 +208,7 @@ def test_execute_selected_passes_ui_values(results_app, monkeypatch, tmp_path):
     method_box = next(
         widget
         for widget in find_widgets(results_app, "TCombobox")
-        if Methods.DECISION_TREE.value in widget.cget("values")
+        if Methods.DECISION_TREE.value in str(widget.cget("values"))
     )
     method_box.set(Methods.DECISION_TREE.value)
     find_widget(results_app, "TSpinbox").set(30)
