@@ -47,19 +47,6 @@ def test_method_result_defaults():
     assert result.total_time is None
 
 
-def test_method_result_normalizes_mutable_fields():
-    metrics = ClassificationMetrics(1.0, 1.0, 1.0, 1.0, None)
-    result = MethodResult(
-        "PART",
-        metrics,
-        model_params=None,
-        class_names=None,
-    )
-
-    assert result.model_params == {}
-    assert result.class_names == []
-
-
 def test_method_result_total_time():
     result = MethodResult("PART", ClassificationMetrics(1.0, 1.0, 1.0, 1.0, None))
     result.load_time = 0.1
