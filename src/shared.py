@@ -23,6 +23,14 @@ class ClassificationMetrics(Metrics):
     confusion_matrix: Any
 
 
+@dataclass
+class RegressionMetrics(Metrics):
+    mae: float
+    mse: float
+    rmse: float
+    r2: float
+
+
 class AbstractResult[FieldT: Enum](ABC):
     @classmethod
     @abstractmethod

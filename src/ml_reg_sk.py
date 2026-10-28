@@ -5,20 +5,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
-from src.shared import ler_arquivo_generico
+from src.shared import RegressionMetrics, ler_arquivo_generico
 
 
-def metricas(texto, y_teste, y_pred):
+def metricas(texto, y_teste, y_pred) -> RegressionMetrics:
     mae = me.mean_absolute_error(y_teste, y_pred)
     mse = me.mean_squared_error(y_teste, y_pred)
     rmse = np.sqrt(mse)
     r2 = me.r2_score(y_teste, y_pred)
-    print("\n------------------------------------", texto)
-    print("------------------------------------")
-    print(f"MAE ...............: {mae:.4f}")
-    print(f"MSE ...............: {mse:.4f}")
-    print(f"RMSE ..............: {rmse:.4f}")
-    print(f"R² ................: {r2:.4f}")
+    return RegressionMetrics(mae, mse, rmse, r2)
 
 
 # ==============================================================
