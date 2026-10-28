@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import filedialog, ttk
 
-from src.enums import Methods
+from src.enums import MethodResultField, Methods
 from src.ml_clas_sk import run_all_methods, run_individual_method
-from src.shared import ClassificationMetrics, MethodResult, format_duration
+from src.shared import ClassificationMetrics, MethodResult, format_metadata
 
 DEFAULT_FILE = "./data/spambase.arff"
 
@@ -11,21 +11,8 @@ SORT_NEWEST = "Mais novo"
 SORT_OLDEST = "Mais velho"
 SORT_OPTIONS = (SORT_NEWEST, SORT_OLDEST)
 
-METADATA_FIELDS = (
-    ("method", "Método:"),
-    ("timestamp", "Execução:"),
-    ("dataset", "Dataset:"),
-    ("samples", "Amostras:"),
-    ("features", "Features:"),
-    ("classes", "Classes:"),
-    ("split", "Divisão de teste:"),
-    ("train_test", "Treino / Teste:"),
-    ("load_time", "Tempo de carga:"),
-    ("train_time", "Tempo de treino:"),
-    ("test_time", "Tempo de teste:"),
-    ("total_time", "Tempo total:"),
-    ("random_state", "Random state:"),
-    ("preprocessing", "Pré-processamento:"),
+METADATA_FIELDS = tuple(
+    field for field in MethodResultField if field is not MethodResultField.model_params
 )
 
 METRIC_NAMES = {
@@ -192,66 +179,31 @@ class DetailsPanel(ttk.Frame):
         self.columnconfigure(1, weight=1)
         self.columnconfigure(3, weight=1)
 
-        self.metadata = {}
-        for index, (key, text) in enumerate(METADATA_FIELDS):
+        self.metadata: dict[MethodResultField, ttk.Label] = {}
+        for index, field in enumerate(METADATA_FIELDS):
             row, column = divmod(index, 2)
-            ttk.Label(self, text=text, style=STYLE_METADATA).grid(
+            ttk.Label(self, text=field.value, style=STYLE_METADATA).grid(
                 row=row, column=column * 2, sticky=tk.W, padx=(0, 5), pady=2
             )
-            value = ttk.Label(self, text="-")
-            value.grid(
+            label = ttk.Label(self, text="-")
+            label.grid(
                 row=row, column=column * 2 + 1, sticky=tk.W, padx=(0, 20), pady=2
             )
-            self.metadata[key] = value
+            self.metadata[field] = label
 
         params_row = (len(METADATA_FIELDS) + 1) // 2
-        ttk.Label(self, text="Hiperparâmetros:", style=STYLE_METADATA).grid(
-            row=params_row, column=0, sticky=tk.NW, pady=2
-        )
-        self.params_value = ttk.Label(self, text="-", wraplength=520, justify=tk.LEFT)
-        self.params_value.grid(
-            row=params_row, column=1, columnspan=3, sticky=tk.W, pady=2
-        )
+        ttk.Label(
+            self,
+            text=MethodResultField.model_params.value,
+            style=STYLE_METADATA,
+        ).grid(row=params_row, column=0, sticky=tk.NW, pady=2)
+        params_label = ttk.Label(self, text="-", wraplength=520, justify=tk.LEFT)
+        params_label.grid(row=params_row, column=1, columnspan=3, sticky=tk.W, pady=2)
+        self.metadata[MethodResultField.model_params] = params_label
 
-    def render(self, result):
-        self.metadata["method"].config(text=result.method_name)
-        self.metadata["timestamp"].config(
-            text=result.timestamp.strftime("%d/%m/%Y %H:%M:%S")
-        )
-        self.metadata["dataset"].config(text=result.dataset_name or "-")
-        self.metadata["samples"].config(
-            text="-" if result.n_samples is None else str(result.n_samples)
-        )
-        self.metadata["features"].config(
-            text="-" if result.n_features is None else str(result.n_features)
-        )
-        self.metadata["classes"].config(
-            text="-" if result.n_classes is None else str(result.n_classes)
-        )
-        self.metadata["split"].config(
-            text=f"{result.test_split:g}%" if result.test_split is not None else "-"
-        )
-        self.metadata["train_test"].config(
-            text=(
-                f"{result.n_train} / {result.n_test}"
-                if result.n_train is not None and result.n_test is not None
-                else "-"
-            )
-        )
-        self.metadata["load_time"].config(text=format_duration(result.load_time))
-        self.metadata["train_time"].config(text=format_duration(result.train_time))
-        self.metadata["test_time"].config(text=format_duration(result.test_time))
-        self.metadata["total_time"].config(text=format_duration(result.total_time))
-        self.metadata["random_state"].config(
-            text="-" if result.random_state is None else str(result.random_state)
-        )
-        self.metadata["preprocessing"].config(text=result.preprocessing or "-")
-        self.params_value.config(
-            text=", ".join(
-                f"{key}={value}" for key, value in result.model_params.items()
-            )
-            or "-"
-        )
+    def render(self, result: MethodResult):
+        for field, label in self.metadata.items():
+            label.config(text=format_metadata(field, result[field]))
 
 
 class ConfusionMatrixView(ttk.Frame):

@@ -20,3 +20,21 @@ class Methods(str, Enum):
     @staticmethod
     def values():
         return [method.value for method in Methods]
+
+
+class MethodResultField(str, Enum):
+    method_name = "Método:"
+    timestamp = "Execução:"
+    dataset_name = "Dataset:"
+    n_samples = "Amostras:"
+    n_features = "Features:"
+    n_classes = "Classes:"
+    test_split = "Divisão de teste:"
+    train_test = "Treino / Teste:"
+    load_time = "Tempo de carga:"
+    train_time = "Tempo de treino:"
+    test_time = "Tempo de teste:"
+    total_time = "Tempo total:"
+    random_state = "Random state:"
+    model_params = "Hiperparâmetros:"
+    preprocessing = "Pré-processamento:"

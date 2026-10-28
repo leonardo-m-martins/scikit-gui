@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from src.enums import MethodResultField
 from src.shared import (
     ClassificationMetrics,
     MethodResult,
@@ -11,19 +12,35 @@ from src.shared import (
 
 
 @pytest.mark.parametrize(
-    ("seconds", "expected"),
+    ("field", "value", "expected"),
     [
-        (None, "-"),
-        (0.0, "0.00 ms"),
-        (0.099, "99.00 ms"),
-        (0.1, "0.10 s"),
-        (59.99, "59.99 s"),
-        (60.0, "1 min 0.00 s"),
-        (72.4, "1 min 12.40 s"),
+        (MethodResultField.method_name, "PART", "PART"),
+        (MethodResultField.dataset_name, None, "-"),
+        (MethodResultField.n_samples, 40, "40"),
+        (MethodResultField.n_samples, None, "-"),
+        (MethodResultField.test_split, 50, "50%"),
+        (MethodResultField.test_split, None, "-"),
+        (MethodResultField.train_test, (20, 20), "20 / 20"),
+        (MethodResultField.train_test, (None, None), "-"),
+        (MethodResultField.load_time, None, "-"),
+        (MethodResultField.load_time, 0.0, "0.00 ms"),
+        (MethodResultField.load_time, 0.099, "99.00 ms"),
+        (MethodResultField.load_time, 0.1, "0.10 s"),
+        (MethodResultField.load_time, 59.99, "59.99 s"),
+        (MethodResultField.load_time, 60.0, "1 min 0.00 s"),
+        (MethodResultField.load_time, 72.4, "1 min 12.40 s"),
+        (
+            MethodResultField.timestamp,
+            datetime(2026, 10, 24, 15, 3, 9),
+            "24/10/2026 15:03:09",
+        ),
+        (MethodResultField.timestamp, None, "-"),
+        (MethodResultField.model_params, {"criterion": "entropy"}, "criterion=entropy"),
+        (MethodResultField.model_params, {}, "-"),
     ],
 )
-def test_format_duration(seconds, expected):
-    assert format_metadata(seconds) == expected
+def test_format_metadata(field, value, expected):
+    assert format_metadata(field, value) == expected
 
 
 def test_method_result_defaults():
@@ -45,6 +62,20 @@ def test_method_result_defaults():
     assert result.preprocessing is None
     assert result.class_names == []
     assert result.total_time is None
+
+
+def test_method_result_fields_match_enum(result_factory):
+    result = result_factory()
+
+    for field in MethodResultField:
+        assert hasattr(result, field.name)
+
+
+def test_method_result_indexes_fields(result_factory):
+    result = result_factory()
+
+    assert result[MethodResultField.method_name] == "PART"
+    assert result[MethodResultField.train_test] == (20, 20)
 
 
 def test_method_result_total_time():
