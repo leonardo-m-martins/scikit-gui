@@ -29,10 +29,13 @@ def load_classification_dataset(filename: str) -> Dataset:
 
     features = _feature_matrix(frame, target_column, "Classification")
 
-    target_names = extract_arff_target_names(meta)
-    target, target_names = transform_string_targets_into_int(
-        target_values,
-        target_names,
+    target = np.array(
+        [normalize_target_value(value) for value in target_values],
+        dtype=str,
+    )
+    target_names = select_target_names(
+        target,
+        extract_arff_target_names(meta),
     )
 
     return Dataset(
@@ -86,25 +89,15 @@ def extract_arff_target_names(meta) -> list[str] | None:
     return [normalize_target_value(label) for label in labels]
 
 
-def transform_string_targets_into_int(
-    values,
-    declared_names: list[str] | None = None,
-) -> tuple[np.ndarray, list[str]]:
-    normalized_values = [normalize_target_value(value) for value in values]
-    present = set(normalized_values)
+def select_target_names(values, declared_names=None) -> list[str]:
+    present = set(values)
 
     if declared_names is not None:
         selected = [name for name in declared_names if name in present]
         if present <= set(selected):
-            return _encode_targets(normalized_values, selected)
+            return selected
 
-    names = sorted(present)
-    return _encode_targets(normalized_values, names)
-
-
-def _encode_targets(values, names):
-    index = {name: position for position, name in enumerate(names)}
-    return np.array([index[value] for value in values], dtype=int), names
+    return sorted(present)
 
 
 def _validate_classification_target(values):

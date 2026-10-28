@@ -1,4 +1,5 @@
 import time
+from functools import partial
 
 from sklearn import metrics as me
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
@@ -74,12 +75,16 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
 }
 
 
-def classification_metrics(y_true, y_pred) -> ClassificationMetrics:
-    cm = me.confusion_matrix(y_true, y_pred)
+def classification_metrics(y_true, y_pred, labels=None) -> ClassificationMetrics:
+    if labels is not None:
+        present = set(y_true) | set(y_pred)
+        labels = [label for label in labels if label in present]
+
+    cm = me.confusion_matrix(y_true, y_pred, labels=labels)
     ac = me.accuracy_score(y_true, y_pred)
-    pr = me.precision_score(y_true, y_pred, average="macro")
-    re = me.recall_score(y_true, y_pred, average="macro")
-    f1 = me.f1_score(y_true, y_pred, average="macro")
+    pr = me.precision_score(y_true, y_pred, average="macro", labels=labels)
+    re = me.recall_score(y_true, y_pred, average="macro", labels=labels)
+    f1 = me.f1_score(y_true, y_pred, average="macro", labels=labels)
     return ClassificationMetrics(ac, pr, re, f1, cm)
 
 
@@ -95,12 +100,17 @@ def run_individual_method(
     dataset = load_classification_dataset(filename)
     load_time = time.perf_counter() - start
 
+    metrics_fn = partial(
+        classification_metrics,
+        labels=dataset.target_names,
+    )
+
     result = run_pipeline(
         method,
         dataset,
         split,
         spec,
-        classification_metrics,
+        metrics_fn,
         load_time=load_time,
         stratify=True,
     )

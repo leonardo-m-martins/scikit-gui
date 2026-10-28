@@ -8,7 +8,7 @@ from src.loader import (
     load_dataset,
     load_regression_dataset,
     normalize_target_value,
-    transform_string_targets_into_int,
+    select_target_names,
 )
 from src.shared import ler_arquivo_generico
 
@@ -40,66 +40,26 @@ def test_extract_arff_target_names(tiny_arff):
     assert extract_arff_target_names(None) is None
 
 
-def test_transform_string_targets_into_int_uses_arff_order(tiny_arff):
-    _, metadata = ler_arquivo_generico(str(tiny_arff), com_meta=True)
-    names = extract_arff_target_names(metadata)
-
-    classes, class_names = transform_string_targets_into_int(
-        ["no", "yes", "no"],
-        names,
-    )
-
-    assert class_names == ["yes", "no"]
-    assert classes.tolist() == [1, 0, 1]
-
-
-def test_transform_string_targets_into_int_only_keeps_present_labels(tiny_arff):
-    _, metadata = ler_arquivo_generico(str(tiny_arff), com_meta=True)
-    names = extract_arff_target_names(metadata)
-
-    classes, class_names = transform_string_targets_into_int(
-        ["yes", "yes"],
-        names,
-    )
-
-    assert class_names == ["yes"]
-    assert classes.tolist() == [0, 0]
-
-
-def test_transform_string_targets_into_int_falls_back_to_sorted_values(
-    arff_factory,
-):
-    rows = [
-        (0.0, 0.0, 0.0),
-        (1.0, 1.0, 1.0),
-        (2.0, 2.0, 1.0),
-        (3.0, 3.0, 0.0),
+def test_select_target_names_uses_arff_order():
+    assert select_target_names(["no", "yes", "no"], ["yes", "no"]) == [
+        "yes",
+        "no",
     ]
-    path = arff_factory(rows, numeric_class=True, name="numeric_class")
-    _, metadata = ler_arquivo_generico(str(path), com_meta=True)
-
-    classes, class_names = transform_string_targets_into_int(
-        [1.0, 0.0, 1.0],
-        extract_arff_target_names(metadata),
-    )
-
-    assert class_names == ["0", "1"]
-    assert classes.tolist() == [1, 0, 1]
 
 
-def test_transform_string_targets_into_int_falls_back_when_labels_do_not_match(
-    tiny_arff,
-):
-    _, metadata = ler_arquivo_generico(str(tiny_arff), com_meta=True)
-    names = extract_arff_target_names(metadata)
+def test_select_target_names_only_keeps_present_labels():
+    assert select_target_names(["yes", "yes"], ["yes", "no"]) == ["yes"]
 
-    classes, class_names = transform_string_targets_into_int(
-        ["maybe", "yes"],
-        names,
-    )
 
-    assert class_names == ["maybe", "yes"]
-    assert classes.tolist() == [0, 1]
+def test_select_target_names_falls_back_to_sorted_values():
+    assert select_target_names(["1", "0", "1"]) == ["0", "1"]
+
+
+def test_select_target_names_falls_back_when_labels_do_not_match():
+    assert select_target_names(["maybe", "yes"], ["yes", "no"]) == [
+        "maybe",
+        "yes",
+    ]
 
 
 def test_load_classification_dataset(tiny_arff):
@@ -110,7 +70,8 @@ def test_load_classification_dataset(tiny_arff):
     assert dataset.features.shape == (40, 2)
     assert dataset.features.dtype == float
     assert dataset.target.shape == (40,)
-    assert dataset.target.dtype.kind in "iu"
+    assert dataset.target.dtype.kind == "U"
+    assert dataset.target[:2].tolist() == ["yes", "no"]
     assert dataset.target_names == ["yes", "no"]
 
 
@@ -166,7 +127,7 @@ def test_load_dataset_dispatches_by_mode(tiny_arff, arff_factory):
     regression = load_dataset(str(regression_path), Modes.REGRESSION)
 
     assert classification.target_names == ["yes", "no"]
-    assert classification.target.dtype.kind in "iu"
+    assert classification.target.dtype.kind == "U"
     assert regression.target_names is None
     assert regression.target.dtype == float
 

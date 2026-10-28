@@ -25,6 +25,17 @@ def test_classification_metrics_binary_known_values():
     assert metrics.confusion_matrix.tolist() == [[2, 0], [1, 1]]
 
 
+def test_classification_metrics_preserves_label_order():
+    metrics = classification_metrics(
+        ["yes", "no", "yes", "no"],
+        ["yes", "no", "no", "no"],
+        labels=["yes", "no"],
+    )
+
+    assert metrics.accuracy == pytest.approx(0.75)
+    assert metrics.confusion_matrix.tolist() == [[1, 1], [0, 2]]
+
+
 @pytest.mark.parametrize(
     ("model", "expected"),
     [
