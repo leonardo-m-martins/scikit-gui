@@ -1,30 +1,17 @@
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from sklearn import metrics as me
-from sklearn.base import BaseEstimator
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
 from src.enums import Methods
+from src.ml_common import Dataset, ModelSpec, run_pipeline
 from src.shared import ClassificationMetrics, MethodResult, ler_arquivo_generico
-
-
-@dataclass(frozen=True)
-class ModelSpec:
-    model_type: type[BaseEstimator]
-    params: dict[str, Any] = field(default_factory=dict)
-    display_keys: tuple[str, ...] = ()
-    preprocessing: str | None = None
-
 
 MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.MULTILAYER_PERCEPTRON: ModelSpec(
@@ -87,10 +74,8 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
     ),
 }
 
-MODEL_PARAM_KEYS = {spec.model_type: spec.display_keys for spec in MODEL_SPECS.values()}
 
-
-def metricas(texto, y_teste, y_pred) -> ClassificationMetrics:
+def metricas(y_teste, y_pred) -> ClassificationMetrics:
     cm = me.confusion_matrix(y_teste, y_pred)
     ac = me.accuracy_score(y_teste, y_pred)
     pr = me.precision_score(y_teste, y_pred, average="macro")
@@ -135,84 +120,35 @@ def ler_arquivo(arquivo):
     return atributos, classes, class_names
 
 
-def get_model_params(model: BaseEstimator) -> dict:
-    keys = MODEL_PARAM_KEYS.get(type(model), ())
-    params = model.get_params()
-    summary = {key: params[key] for key in keys if key in params}
-    n_iter = getattr(model, "n_iter_", None)
-    if n_iter is not None:
-        summary["n_iter_"] = int(np.atleast_1d(n_iter).max())
-    return summary
-
-
-def train_model(
-    model_type: type[BaseEstimator],
-    params: dict[str, Any],
-    features,
-    classes,
-) -> BaseEstimator:
-    model = model_type(**params)
-    model.fit(features, classes)
-    return model
-
-
-def test_model(
-    features, classes, model: BaseEstimator, name: str
-) -> ClassificationMetrics:
-    pred = model.predict(features)
-    return metricas(name, classes, pred)
-
-
 def run_individual_method(
     filename: str, split, method: Methods, METHOD_RESULTS: list[MethodResult]
 ):
-    start = time.perf_counter()
-    features, classes, class_names = ler_arquivo(filename)
-    load_time = time.perf_counter() - start
-
-    features_training, features_test, classes_training, classes_test = train_test_split(
-        features, classes, test_size=split / 100, random_state=42, stratify=classes
-    )
-
     spec = MODEL_SPECS.get(method)
     if spec is None:
         print(f"Método {method} não suportado!")
         return
 
-    if spec.preprocessing == "StandardScaler":
-        scaler = StandardScaler()
-        features_training = scaler.fit_transform(features_training)
-        features_test = scaler.transform(features_test)
-
     start = time.perf_counter()
-    model = train_model(
-        spec.model_type, spec.params, features_training, classes_training
+    features, classes, class_names = ler_arquivo(filename)
+    load_time = time.perf_counter() - start
+
+    dataset = Dataset(
+        name=Path(filename).name,
+        features=features,
+        target=classes,
+        target_names=class_names,
     )
-    train_time = time.perf_counter() - start
 
-    start = time.perf_counter()
-    metrics = test_model(features_test, classes_test, model, method)
-    test_time = time.perf_counter() - start
-
-    results = MethodResult(
+    result = run_pipeline(
         method,
-        metrics,
-        dataset_name=Path(filename).name,
-        n_samples=len(classes),
-        n_features=len(features[0]) if features else 0,
-        n_classes=len(class_names),
-        n_train=len(features_training),
-        n_test=len(features_test),
-        test_split=split,
+        dataset,
+        split,
+        spec,
+        metricas,
         load_time=load_time,
-        train_time=train_time,
-        test_time=test_time,
-        random_state=42,
-        model_params=get_model_params(model),
-        preprocessing=spec.preprocessing,
-        class_names=class_names,
+        stratify=True,
     )
-    METHOD_RESULTS.append(results)
+    METHOD_RESULTS.append(result)
 
 
 def run_all_methods(filename: str, split: int, METHOD_RESULTS: list[MethodResult]):
