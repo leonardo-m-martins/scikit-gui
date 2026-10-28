@@ -5,7 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 
-from src.shared import RegressionMetrics, ler_arquivo_generico
+from src.loader import load_arff
+from src.shared import RegressionMetrics
 
 
 def metricas(texto, y_teste, y_pred) -> RegressionMetrics:
@@ -20,7 +21,7 @@ def metricas(texto, y_teste, y_pred) -> RegressionMetrics:
 # LEITURA DO ARQUIVO
 # ==============================================================
 def ler_arquivo(arquivo):
-    df = ler_arquivo_generico(arquivo)
+    df, _ = load_arff(arquivo)
     atributos = df.iloc[:, :-1].astype(float).values
     target = df.iloc[:, -1].astype(float).values
     return atributos, target

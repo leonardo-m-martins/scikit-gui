@@ -4,13 +4,13 @@ import pytest
 from src.enums import Modes
 from src.loader import (
     extract_arff_target_names,
+    load_arff,
     load_classification_dataset,
     load_dataset,
     load_regression_dataset,
     normalize_target_value,
     select_target_names,
 )
-from src.shared import ler_arquivo_generico
 
 
 @pytest.mark.parametrize(
@@ -33,8 +33,20 @@ def test_modes_have_gui_values():
     assert Modes.CLASSIFICATION.value == "Classificação"
 
 
+def test_load_arff_returns_decoded_frame_and_metadata(tiny_arff):
+    dataframe, metadata = load_arff(str(tiny_arff))
+
+    assert list(dataframe.columns) == ["f1", "f2", "class"]
+    assert set(dataframe["class"]) == {"yes", "no"}
+    assert all(isinstance(value, str) for value in dataframe["class"])
+    assert metadata.names()[-1] == "class"
+    kind, labels = metadata["class"]
+    assert kind == "nominal"
+    assert list(labels) == ["yes", "no"]
+
+
 def test_extract_arff_target_names(tiny_arff):
-    _, metadata = ler_arquivo_generico(str(tiny_arff), com_meta=True)
+    _, metadata = load_arff(str(tiny_arff))
 
     assert extract_arff_target_names(metadata) == ["yes", "no"]
     assert extract_arff_target_names(None) is None
@@ -83,8 +95,16 @@ def test_load_classification_dataset_rejects_single_class(arff_factory):
 
 
 def test_load_classification_dataset_rejects_non_numeric_features(tmp_path):
-    path = tmp_path / "categorical.csv"
-    path.write_text("feature,class\nfoo,yes\nbar,no\n", encoding="utf-8")
+    path = tmp_path / "categorical.arff"
+    path.write_text(
+        "@relation categorical\n"
+        "@attribute feature {foo,bar}\n"
+        "@attribute class {yes,no}\n"
+        "@data\n"
+        "foo,yes\n"
+        "bar,no\n",
+        encoding="utf-8",
+    )
 
     with pytest.raises(ValueError, match="features must be numeric"):
         load_classification_dataset(str(path))
@@ -108,9 +128,12 @@ def test_load_regression_dataset(arff_factory):
     assert dataset.target_names is None
 
 
-def test_load_regression_dataset_rejects_non_numeric_target(tmp_path):
-    path = tmp_path / "regression.csv"
-    path.write_text("0.0,1.0,foo\n1.0,2.0,bar\n", encoding="utf-8")
+def test_load_regression_dataset_rejects_non_numeric_target(arff_factory):
+    path = arff_factory(
+        [(0.0, 1.0, "foo"), (1.0, 2.0, "bar")],
+        labels=("foo", "bar"),
+        name="regression_labels",
+    )
 
     with pytest.raises(ValueError, match="target must be numeric"):
         load_regression_dataset(str(path))

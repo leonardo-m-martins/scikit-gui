@@ -1,10 +1,24 @@
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import pandas as pd
+from scipy.io import arff
 
 from src.enums import Modes
 from src.ml_common import Dataset
-from src.shared import ler_arquivo_generico
+
+
+def load_arff(filename: str) -> tuple[pd.DataFrame, Any]:
+    data, metadata = arff.loadarff(filename)
+    frame = pd.DataFrame(data)
+
+    for column in frame.select_dtypes([object]).columns:
+        frame[column] = frame[column].apply(
+            lambda value: value.decode("utf-8") if isinstance(value, bytes) else value
+        )
+
+    return frame, metadata
 
 
 def load_dataset(filename: str, mode: Modes) -> Dataset:
@@ -21,7 +35,7 @@ def load_dataset(filename: str, mode: Modes) -> Dataset:
 
 
 def load_classification_dataset(filename: str) -> Dataset:
-    frame, meta = ler_arquivo_generico(filename, com_meta=True)
+    frame, meta = load_arff(filename)
 
     target_column = frame.columns[-1]
     target_values = frame[target_column]
@@ -47,7 +61,7 @@ def load_classification_dataset(filename: str) -> Dataset:
 
 
 def load_regression_dataset(filename: str) -> Dataset:
-    frame, _ = ler_arquivo_generico(filename, com_meta=True)
+    frame, _ = load_arff(filename)
 
     target_column = frame.columns[-1]
     target_values = frame[target_column]

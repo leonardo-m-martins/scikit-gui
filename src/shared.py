@@ -4,9 +4,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-import pandas as pd
-from scipy.io import arff
-
 from src.enums import MethodResultField
 
 
@@ -125,18 +122,3 @@ class MethodResult(AbstractResult[MethodResultField]):
 
     def get_display_name(self):
         return f"{self.timestamp.strftime('%H:%M:%S')} - {self.method_name}"
-
-
-def ler_arquivo_generico(arquivo: str, com_meta: bool = False):
-    if arquivo.endswith(".arff"):
-        data, meta = arff.loadarff(arquivo)
-        df = pd.DataFrame(data)
-        # Decodificar bytes para string nas colunas object/bytes
-        for col in df.select_dtypes([object]).columns:
-            df[col] = df[col].apply(
-                lambda x: x.decode("utf-8") if isinstance(x, bytes) else x
-            )
-        return (df, meta) if com_meta else df
-    else:
-        df = pd.read_csv(arquivo, header=None)
-        return (df, None) if com_meta else df

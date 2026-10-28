@@ -7,7 +7,6 @@ from src.shared import (
     ClassificationMetrics,
     MethodResult,
     format_metadata,
-    ler_arquivo_generico,
 )
 
 
@@ -95,21 +94,3 @@ def test_method_result_display_name():
     result.timestamp = datetime(2026, 10, 24, 15, 3, 9)
 
     assert result.get_display_name() == "15:03:09 - PART"
-
-
-def test_ler_arquivo_generico_arff(tiny_arff):
-    dataframe = ler_arquivo_generico(str(tiny_arff))
-
-    assert list(dataframe.columns) == ["f1", "f2", "class"]
-    assert set(dataframe["class"]) == {"yes", "no"}
-    assert all(isinstance(value, str) for value in dataframe["class"])
-
-
-def test_ler_arquivo_generico_arff_with_metadata(tiny_arff):
-    dataframe, metadata = ler_arquivo_generico(str(tiny_arff), com_meta=True)
-
-    assert len(dataframe) == 40
-    assert metadata.names()[-1] == "class"
-    kind, labels = metadata["class"]
-    assert kind == "nominal"
-    assert list(labels) == ["yes", "no"]
