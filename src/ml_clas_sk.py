@@ -75,16 +75,16 @@ MODEL_SPECS: dict[Methods, ModelSpec] = {
 }
 
 
-def metricas(y_teste, y_pred) -> ClassificationMetrics:
-    cm = me.confusion_matrix(y_teste, y_pred)
-    ac = me.accuracy_score(y_teste, y_pred)
-    pr = me.precision_score(y_teste, y_pred, average="macro")
-    re = me.recall_score(y_teste, y_pred, average="macro")
-    f1 = me.f1_score(y_teste, y_pred, average="macro")
+def classification_metrics(y_true, y_pred) -> ClassificationMetrics:
+    cm = me.confusion_matrix(y_true, y_pred)
+    ac = me.accuracy_score(y_true, y_pred)
+    pr = me.precision_score(y_true, y_pred, average="macro")
+    re = me.recall_score(y_true, y_pred, average="macro")
+    f1 = me.f1_score(y_true, y_pred, average="macro")
     return ClassificationMetrics(ac, pr, re, f1, cm)
 
 
-def format_class_value(value) -> str:
+def normalize_target_value(value) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8")
     if isinstance(value, (float, np.floating)) and float(value).is_integer():
@@ -92,32 +92,79 @@ def format_class_value(value) -> str:
     return str(value)
 
 
-def preparar_classes(values, meta):
-    present = set(values)
+def extract_arff_target_names(meta) -> list[str] | None:
+    if meta is None:
+        return None
 
-    if meta is not None:
-        attribute = meta.names()[-1]
-        kind, labels = meta[attribute]
-        if kind == "nominal" and labels:
-            labels = [format_class_value(label) for label in labels]
-            if present <= set(labels):
-                selected = [label for label in labels if label in present]
-                index = {label: i for i, label in enumerate(selected)}
-                return np.array([index[value] for value in values]), selected
+    target_attribute = meta.names()[-1]
+    kind, labels = meta[target_attribute]
 
-    ordered = sorted(present)
-    names = [format_class_value(value) for value in ordered]
-    index = {value: i for i, value in enumerate(ordered)}
-    return np.array([index[value] for value in values]), names
+    if kind != "nominal" or not labels:
+        return None
+
+    return [normalize_target_value(label) for label in labels]
 
 
-def ler_arquivo(arquivo):
-    df, meta = ler_arquivo_generico(arquivo, com_meta=True)
+def transform_string_targets_into_int(
+    values,
+    declared_names: list[str] | None = None,
+) -> tuple[np.ndarray, list[str]]:
+    normalized_values = [normalize_target_value(value) for value in values]
+    present = set(normalized_values)
 
-    atributos = df.iloc[:, :-1].astype(float).values.tolist()
-    classes, class_names = preparar_classes(df.iloc[:, -1].tolist(), meta)
+    if declared_names is not None:
+        selected = [name for name in declared_names if name in present]
+        if present <= set(selected):
+            return _encode_targets(normalized_values, selected)
 
-    return atributos, classes, class_names
+    names = sorted(present)
+    return _encode_targets(normalized_values, names)
+
+
+def _encode_targets(values, names):
+    index = {name: position for position, name in enumerate(names)}
+    return np.array([index[value] for value in values], dtype=int), names
+
+
+def _validate_classification_target(values):
+    if values.isna().any():
+        raise ValueError("Classification target contains missing values.")
+
+    normalized = values.map(normalize_target_value)
+    if normalized.nunique() < 2:
+        raise ValueError("Classification target must contain at least two classes.")
+
+
+def load_classification_dataset(filename: str) -> Dataset:
+    frame, meta = ler_arquivo_generico(filename, com_meta=True)
+
+    target_column = frame.columns[-1]
+    target_values = frame[target_column]
+    _validate_classification_target(target_values)
+
+    feature_frame = frame.drop(columns=target_column)
+    try:
+        features = feature_frame.to_numpy(dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Classification features must be numeric or binary numeric columns."
+        ) from exc
+
+    if features.size == 0:
+        raise ValueError("Classification features must not be empty.")
+
+    target_names = extract_arff_target_names(meta)
+    target, target_names = transform_string_targets_into_int(
+        target_values,
+        target_names,
+    )
+
+    return Dataset(
+        name=Path(filename).name,
+        features=features,
+        target=target,
+        target_names=target_names,
+    )
 
 
 def run_individual_method(
@@ -125,26 +172,19 @@ def run_individual_method(
 ):
     spec = MODEL_SPECS.get(method)
     if spec is None:
-        print(f"Método {method} não suportado!")
+        print(f"Method {method} is not supported!")
         return
 
     start = time.perf_counter()
-    features, classes, class_names = ler_arquivo(filename)
+    dataset = load_classification_dataset(filename)
     load_time = time.perf_counter() - start
-
-    dataset = Dataset(
-        name=Path(filename).name,
-        features=features,
-        target=classes,
-        target_names=class_names,
-    )
 
     result = run_pipeline(
         method,
         dataset,
         split,
         spec,
-        metricas,
+        classification_metrics,
         load_time=load_time,
         stratify=True,
     )
