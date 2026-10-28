@@ -22,6 +22,15 @@ class Methods(str, Enum):
         return [method.value for method in Methods]
 
 
+class Modes(str, Enum):
+    REGRESSION = "Regressão"
+    CLASSIFICATION = "Classificação"
+
+    @staticmethod
+    def values():
+        return [mode.value for mode in Modes]
+
+
 class MethodResultField(str, Enum):
     method_name = "Método:"
     timestamp = "Execução:"
