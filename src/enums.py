@@ -7,7 +7,7 @@ class Methods(str, Enum):
     COMPLEMENT_NAIVE_BAYES = "Complement Naive Bayes"
     LOGISTICS = "Logistics"
     MULTILAYER_PERCEPTRON = "Multilayer Perceptron"
-    SMO = "SMO"
+    SVC = "SVC"
     K_STAR = "KStar"
     ADABOOSTM1 = "AdaBoostM1"
     LOGITBOOST = "Logitboost"

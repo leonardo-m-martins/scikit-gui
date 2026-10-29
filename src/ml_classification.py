@@ -3,6 +3,7 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 from src.enums import Methods
@@ -68,6 +69,7 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
         ("max_iter"),
         preprocessing="StandardScaler",
     ),
+    Methods.SVC: ModelSpec(SVC, preprocessing="StandardScaler"),
 }
 
 

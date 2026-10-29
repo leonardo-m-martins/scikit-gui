@@ -4,7 +4,7 @@
   - [x] Naive Bayes: Gaussian → GaussianNB, Multinomial → MultinomialNB e Complement → ComplementNB.
   - [x] Lineares e neurais: Logistics → LogisticRegression e Multilayer Perceptron → MLPClassifier.
   - [ ] SVM e ensembles:
-    - [ ] SMO → SVC
+    - [x] SMO → SVC
     - [x] AdaBoostM1 → AdaBoostClassifier
     - [ ] Vote → VotingClassifier
     - [x] Decision Tree → DecisionTreeClassifier
