@@ -153,9 +153,9 @@ def run_all_methods(
     random_state: int = 42,
 ) -> list[MethodResult]:
     results = []
-    for method in Methods.values():
+    for method in mode_config.specs:
         result = run_method(
-            method,
+            method.value,
             dataset,
             split,
             mode_config,
