@@ -1,6 +1,6 @@
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from typing import Any
 
@@ -19,6 +19,9 @@ class ModelSpec:
     params: dict[str, Any] = field(default_factory=dict)
     display_keys: tuple[str, ...] = ()
     preprocessing: str | None = None
+
+    def update_params(self, params: dict[str, Any]) -> "ModelSpec":
+        return replace(self, params={**self.params, **params})
 
 
 @dataclass(frozen=True)
