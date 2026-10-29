@@ -4,7 +4,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from src.enums import MethodResultField, Modes
+from src.enums import MethodResultField, Modes, Preprocessors
 from src.loader import load_dataset
 from src.ml_classification import CLASSIFICATION_CONFIG
 from src.ml_common import ModelSpec, run_all_methods, run_method
@@ -534,6 +534,7 @@ class ConfigPanel(ttk.LabelFrame):
         self.path_var = tk.StringVar(value=DEFAULT_FILE)
         self.mode_var = tk.StringVar(value=Modes.CLASSIFICATION.value)
         self.method_var = tk.StringVar()
+        self.preprocessing_var = tk.StringVar(value=Preprocessors.NONE.value)
         self.split_var = tk.IntVar(value=20)
         self.dataset = None
         self._loaded_mode = Modes.CLASSIFICATION
@@ -589,6 +590,7 @@ class ConfigPanel(ttk.LabelFrame):
             sticky=tk.EW,
             pady=10,
         )
+        self.method_box.bind("<<ComboboxSelected>>", self._on_method_changed)
 
         self.params_button = ttk.Button(
             self,
@@ -602,8 +604,29 @@ class ConfigPanel(ttk.LabelFrame):
             pady=10,
         )
 
-        ttk.Label(self, text="📊 % de Teste:").grid(
+        ttk.Label(self, text="🗒️ Pré-processamento:").grid(
             row=3, column=0, sticky=tk.W, pady=10, padx=(0, 10)
+        )
+        self.preprocessing_box = ttk.Combobox(
+            self,
+            textvariable=self.preprocessing_var,
+            values=Preprocessors.values(),
+            state=tk.DISABLED,
+        )
+        self.preprocessing_box.grid(
+            row=3,
+            column=1,
+            columnspan=2,
+            sticky=tk.EW,
+            pady=10,
+        )
+        self.preprocessing_box.bind(
+            "<<ComboboxSelected>>",
+            self._on_preprocessing_changed,
+        )
+
+        ttk.Label(self, text="📊 % de Teste:").grid(
+            row=4, column=0, sticky=tk.W, pady=10, padx=(0, 10)
         )
         self.split_box = ttk.Spinbox(
             self,
@@ -613,7 +636,7 @@ class ConfigPanel(ttk.LabelFrame):
             increment=1,
         )
         self.split_box.grid(
-            row=3,
+            row=4,
             column=1,
             columnspan=2,
             sticky=tk.EW,
@@ -621,7 +644,7 @@ class ConfigPanel(ttk.LabelFrame):
         )
 
         action_frame = ttk.Frame(self)
-        action_frame.grid(row=4, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
+        action_frame.grid(row=5, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
 
         self.run_selected_button = ttk.Button(
             action_frame,
@@ -649,7 +672,7 @@ class ConfigPanel(ttk.LabelFrame):
 
         self.status_frame = ttk.Frame(self)
         self.status_frame.grid(
-            row=5,
+            row=6,
             column=0,
             columnspan=3,
             sticky=tk.W,
@@ -733,6 +756,11 @@ class ConfigPanel(ttk.LabelFrame):
         combo_state = "readonly" if enabled else tk.DISABLED
         self.mode_box.configure(state=combo_state)
         self.method_box.configure(state=combo_state)
+
+        preprocessing_state = (
+            "readonly" if enabled and self.method_var.get() else tk.DISABLED
+        )
+        self.preprocessing_box.configure(state=preprocessing_state)
 
     def _update_progress_label(self):
         self.current_method_var.set(self._current_method)
@@ -819,6 +847,40 @@ class ConfigPanel(ttk.LabelFrame):
         mode = Modes(self.mode_var.get())
         self.method_box.configure(values=method_values(mode))
         self.method_var.set("")
+        self._on_method_changed()
+
+    def _on_method_changed(self, _event=None):
+        method = self.method_var.get()
+        if not method:
+            self.preprocessing_var.set(Preprocessors.NONE.value)
+            self.preprocessing_box.configure(state=tk.DISABLED)
+            return
+
+        mode = Modes(self.mode_var.get())
+        spec = MODE_CONFIGS[mode].specs.get(method)
+        if spec is None:
+            self.preprocessing_var.set(Preprocessors.NONE.value)
+            self.preprocessing_box.configure(state=tk.DISABLED)
+            return
+
+        self.preprocessing_var.set(spec.preprocessing.value)
+        self.preprocessing_box.configure(state="readonly")
+
+    def _on_preprocessing_changed(self, _event=None):
+        method = self.method_var.get()
+        if not method:
+            return
+
+        mode = Modes(self.mode_var.get())
+        spec = MODE_CONFIGS[mode].specs.get(method)
+        if spec is None:
+            return
+
+        preprocessing = Preprocessors(self.preprocessing_var.get())
+        MODE_CONFIGS[mode].specs[method] = spec.update_params(
+            {},
+            preprocessing=preprocessing,
+        )
 
     def _update_dataset(self) -> bool:
         mode = Modes(self.mode_var.get())

@@ -20,8 +20,19 @@ class ModelSpec:
     display_keys: tuple[str, ...] = ()
     preprocessing: Preprocessors = Preprocessors.NONE
 
-    def update_params(self, params: dict[str, Any]) -> "ModelSpec":
-        return replace(self, params={**self.params, **params})
+    def update_params(
+        self,
+        params: dict[str, Any],
+        *,
+        preprocessing: Preprocessors | None = None,
+    ) -> "ModelSpec":
+        return replace(
+            self,
+            params={**self.params, **params},
+            preprocessing=(
+                self.preprocessing if preprocessing is None else preprocessing
+            ),
+        )
 
 
 PREPROCESSOR_TYPES = {
