@@ -151,9 +151,14 @@ def run_all_methods(
     *,
     stratify: bool = False,
     random_state: int = 42,
+    on_method_start: Callable[[str], None] | None = None,
+    on_method_complete: Callable[[], None] | None = None,
 ) -> list[MethodResult]:
     results = []
     for method in mode_config.specs:
+        if on_method_start is not None:
+            on_method_start(method.value)
+
         result = run_method(
             method.value,
             dataset,
@@ -164,5 +169,8 @@ def run_all_methods(
         )
         if result is not None:
             results.append(result)
+
+        if on_method_complete is not None:
+            on_method_complete()
 
     return results

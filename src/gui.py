@@ -1,3 +1,5 @@
+import queue
+import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -379,17 +381,24 @@ class ConfigPanel(ttk.LabelFrame):
         self.split_var = tk.IntVar(value=20)
         self.dataset = None
         self._loaded_mode = Modes.CLASSIFICATION
+        self._running = False
+        self._progress_total = 0
+        self._progress_index = 0
+        self._progress_job = None
+        self._current_method = ""
         self.columnconfigure(1, weight=1)
 
         ttk.Label(self, text="📁 Arquivo de Dados:").grid(
             row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10)
         )
-        ttk.Entry(self, textvariable=self.path_var).grid(
-            row=0, column=1, sticky=tk.EW, pady=(0, 10), padx=(0, 10)
+        self.path_entry = ttk.Entry(self, textvariable=self.path_var)
+        self.path_entry.grid(row=0, column=1, sticky=tk.EW, pady=(0, 10), padx=(0, 10))
+        self.browse_button = ttk.Button(
+            self,
+            text="🔍 Procurar",
+            command=self._browse,
         )
-        ttk.Button(self, text="🔍 Procurar", command=self._browse).grid(
-            row=0, column=2, pady=(0, 10)
-        )
+        self.browse_button.grid(row=0, column=2, pady=(0, 10))
 
         ttk.Label(self, text="🎚️ Modo:").grid(
             row=1, column=0, sticky=tk.W, pady=10, padx=(0, 10)
@@ -429,30 +438,171 @@ class ConfigPanel(ttk.LabelFrame):
         ttk.Label(self, text="📊 % de Teste:").grid(
             row=3, column=0, sticky=tk.W, pady=10, padx=(0, 10)
         )
-        ttk.Spinbox(
+        self.split_box = ttk.Spinbox(
             self,
             textvariable=self.split_var,
             from_=0,
             to=100,
             increment=1,
-        ).grid(row=3, column=1, columnspan=2, sticky=tk.EW, pady=10)
+        )
+        self.split_box.grid(
+            row=3,
+            column=1,
+            columnspan=2,
+            sticky=tk.EW,
+            pady=10,
+        )
 
         action_frame = ttk.Frame(self)
         action_frame.grid(row=4, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
 
-        ttk.Button(
+        self.run_selected_button = ttk.Button(
             action_frame,
             text="▶️ Executar Selecionado",
             command=self._on_run_selected,
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        )
+        self.run_selected_button.pack(
+            side=tk.LEFT,
+            fill=tk.X,
+            expand=True,
+            padx=(0, 5),
+        )
 
-        ttk.Button(
+        self.run_all_button = ttk.Button(
             action_frame,
             text="🚀 Executar Todos",
             command=self._on_run_all,
-        ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
+        )
+        self.run_all_button.pack(
+            side=tk.RIGHT,
+            fill=tk.X,
+            expand=True,
+            padx=(5, 0),
+        )
 
+        self.status_frame = ttk.Frame(self)
+        self.status_frame.grid(
+            row=5,
+            column=0,
+            columnspan=3,
+            sticky=tk.W,
+            pady=(10, 0),
+        )
+
+        self.spinner = ttk.Progressbar(
+            self.status_frame,
+            mode="indeterminate",
+            length=100,
+        )
+        self.spinner.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.current_method_var = tk.StringVar()
+        ttk.Label(
+            self.status_frame,
+            textvariable=self.current_method_var,
+        ).pack(side=tk.LEFT)
+
+        self.progress_var = tk.StringVar()
+        ttk.Label(
+            self.status_frame,
+            textvariable=self.progress_var,
+        ).pack(side=tk.LEFT, padx=(8, 0))
+
+        self.status_frame.grid_remove()
         self._update_dataset()
+
+    def set_running(
+        self,
+        running: bool,
+        total: int = 1,
+        method_name: str = "",
+    ):
+        self._running = running
+
+        if running:
+            self._set_controls_enabled(False)
+            self._progress_total = total
+            self._progress_index = 1
+            self._current_method = method_name
+            self.status_frame.grid()
+            self.spinner.start(12)
+            self._update_progress_label()
+            self._schedule_progress_tick()
+            return
+
+        self._cancel_progress_tick()
+        self.spinner.stop()
+        self.status_frame.grid_remove()
+        self.current_method_var.set("")
+        self.progress_var.set("")
+        self._set_controls_enabled(True)
+
+    def set_current_method(self, method_name: str):
+        self._current_method = method_name
+        self._update_progress_label()
+
+    def mark_method_completed(self):
+        if not self._running:
+            return
+
+        self._progress_total = max(self._progress_total - 1, 1)
+        self._progress_index = 1
+        self._cancel_progress_tick()
+        self._update_progress_label()
+
+        if self._progress_total > 1:
+            self._schedule_progress_tick()
+
+    def _set_controls_enabled(self, enabled: bool):
+        state = tk.NORMAL if enabled else tk.DISABLED
+
+        self.path_entry.configure(state=state)
+        self.browse_button.configure(state=state)
+        self.split_box.configure(state=state)
+        self.run_selected_button.configure(state=state)
+        self.run_all_button.configure(state=state)
+
+        combo_state = "readonly" if enabled else tk.DISABLED
+        self.mode_box.configure(state=combo_state)
+        self.method_box.configure(state=combo_state)
+
+    def _update_progress_label(self):
+        self.current_method_var.set(self._current_method)
+
+        if not self._running or self._progress_total <= 1:
+            self.progress_var.set("")
+            return
+
+        self.progress_var.set(f"{self._progress_index}/{self._progress_total}")
+
+    def _schedule_progress_tick(self):
+        if self._progress_job is not None:
+            return
+
+        if not self._running or self._progress_total <= 1:
+            return
+
+        self._progress_job = self.after(2000, self._tick_progress)
+
+    def _tick_progress(self):
+        self._progress_job = None
+
+        if not self._running or self._progress_total <= 1:
+            return
+
+        self._progress_index = min(
+            self._progress_index + 1,
+            self._progress_total,
+        )
+        self._update_progress_label()
+
+        if self._progress_index < self._progress_total:
+            self._schedule_progress_tick()
+
+    def _cancel_progress_tick(self):
+        if self._progress_job is not None:
+            self.after_cancel(self._progress_job)
+            self._progress_job = None
 
     def get_values(self):
         return (
@@ -498,6 +648,8 @@ class App:
     def __init__(self, root):
         self.root = root
         self.results: list[MethodResult] = []
+        self._busy = False
+        self._worker_queue = queue.Queue()
         configure_styles(root)
 
         self.config = ConfigPanel(
@@ -514,28 +666,118 @@ class App:
         dataset, split, mode, method = self.config.get_values()
         mode_config = MODE_CONFIGS[mode]
 
-        result = run_method(
-            method,
-            dataset,
-            split,
-            mode_config,
-            stratify=mode is Modes.CLASSIFICATION,
+        if not method:
+            messagebox.showwarning("Method", "Select a method first.")
+            return
+
+        def work():
+            return run_method(
+                method,
+                dataset,
+                split,
+                mode_config,
+                stratify=mode is Modes.CLASSIFICATION,
+            )
+
+        self._run_in_background(
+            work,
+            self._append_result,
+            total=1,
+            method_name=method,
         )
+
+    def run_all(self):
+        dataset, split, mode, _ = self.config.get_values()
+        mode_config = MODE_CONFIGS[mode]
+        methods = [method.value for method in mode_config.specs]
+
+        def work():
+            return run_all_methods(
+                dataset,
+                split,
+                mode_config,
+                stratify=mode is Modes.CLASSIFICATION,
+                on_method_start=lambda name: self._worker_queue.put(
+                    ("method_started", name)
+                ),
+                on_method_complete=lambda: self._worker_queue.put(
+                    ("method_completed", None)
+                ),
+            )
+
+        self._run_in_background(
+            work,
+            self._append_results,
+            total=len(methods),
+            method_name=methods[0] if methods else "",
+        )
+
+    def _run_in_background(
+        self,
+        work,
+        on_success,
+        *,
+        total: int = 1,
+        method_name: str = "",
+    ):
+        if self._busy:
+            return
+
+        self._clear_worker_queue()
+        self._busy = True
+        self.config.set_running(True, total=total, method_name=method_name)
+
+        def worker():
+            try:
+                result = work()
+            except Exception as exc:  # noqa: BLE001
+                self._worker_queue.put(("error", exc))
+            else:
+                self._worker_queue.put(("success", result))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.root.after(100, self._poll_worker, on_success)
+
+    def _poll_worker(self, on_success):
+        try:
+            kind, payload = self._worker_queue.get_nowait()
+        except queue.Empty:
+            self.root.after(100, self._poll_worker, on_success)
+            return
+
+        if kind == "method_started":
+            self.config.set_current_method(payload)
+            self.root.after(100, self._poll_worker, on_success)
+            return
+
+        if kind == "method_completed":
+            self.config.mark_method_completed()
+            self.root.after(100, self._poll_worker, on_success)
+            return
+
+        self._busy = False
+        self.config.set_running(False)
+
+        if kind == "error":
+            messagebox.showerror("Execution error", str(payload))
+            return
+
+        on_success(payload)
+
+    def _clear_worker_queue(self):
+        while True:
+            try:
+                self._worker_queue.get_nowait()
+            except queue.Empty:
+                return
+
+    def _append_result(self, result):
         if result is None:
             return
         self.results.append(result)
         self.results_view.refresh(self.results)
 
-    def run_all(self):
-        dataset, split, mode, _ = self.config.get_values()
-        mode_config = MODE_CONFIGS[mode]
-
-        results = run_all_methods(
-            dataset,
-            split,
-            mode_config,
-            stratify=mode is Modes.CLASSIFICATION,
-        )
+    def _append_results(self, results):
         self.results.extend(results)
         self.results_view.refresh(self.results)
 
