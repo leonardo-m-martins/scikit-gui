@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog, ttk
 
-from src.enums import MethodResultField, Methods
+from src.enums import MethodResultField, Methods, Modes
+from src.loader import load_dataset
 from src.ml_clas_sk import run_all_methods, run_individual_method
 from src.shared import ClassificationMetrics, MethodResult, format_metadata
 
@@ -334,6 +335,7 @@ class ConfigPanel(ttk.LabelFrame):
         self.method_var = tk.StringVar()
         self.split_var = tk.IntVar(value=20)
         self.columnconfigure(1, weight=1)
+        self._update_dataset()
 
         ttk.Label(self, text="📁 Arquivo de Dados:").grid(
             row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10)
@@ -382,11 +384,15 @@ class ConfigPanel(ttk.LabelFrame):
         ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
     def get_values(self):
-        return self.path_var.get(), int(self.split_var.get()), self.method_var.get()
+        return self.dataset, int(self.split_var.get()), self.method_var.get()
 
     def _browse(self):
         if filename := filedialog.askopenfilename():
             self.path_var.set(filename)
+            self._update_dataset()
+
+    def _update_dataset(self):
+        self.dataset = load_dataset(self.path_var.get(), mode=Modes.CLASSIFICATION)
 
 
 class App:
@@ -406,13 +412,13 @@ class App:
         self.results_view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
     def run_selected(self):
-        path, split, method = self.config.get_values()
-        run_individual_method(path, split, method, self.results)
+        dataset, split, method = self.config.get_values()
+        run_individual_method(dataset, split, method, self.results)
         self.results_view.refresh(self.results)
 
     def run_all(self):
-        path, split, _ = self.config.get_values()
-        run_all_methods(path, split, self.results)
+        dataset, split, _ = self.config.get_values()
+        run_all_methods(dataset, split, self.results)
         self.results_view.refresh(self.results)
 
 

@@ -1,4 +1,3 @@
-import time
 from functools import partial
 
 from sklearn import metrics as me
@@ -9,8 +8,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 from src.enums import Methods
-from src.loader import load_classification_dataset
-from src.ml_common import ModelSpec, run_pipeline
+from src.ml_common import Dataset, ModelSpec, run_pipeline
 from src.shared import ClassificationMetrics, MethodResult
 
 MODEL_SPECS: dict[Methods, ModelSpec] = {
@@ -89,16 +87,12 @@ def classification_metrics(y_true, y_pred, labels=None) -> ClassificationMetrics
 
 
 def run_individual_method(
-    filename: str, split, method: Methods, METHOD_RESULTS: list[MethodResult]
+    dataset: Dataset, split, method: Methods, METHOD_RESULTS: list[MethodResult]
 ):
     spec = MODEL_SPECS.get(method)
     if spec is None:
         print(f"Method {method} is not supported!")
         return
-
-    start = time.perf_counter()
-    dataset = load_classification_dataset(filename)
-    load_time = time.perf_counter() - start
 
     metrics_fn = partial(
         classification_metrics,
@@ -111,7 +105,7 @@ def run_individual_method(
         split,
         spec,
         metrics_fn,
-        load_time=load_time,
+        load_time=dataset.load_time,
         stratify=True,
     )
     METHOD_RESULTS.append(result)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import numpy as np
@@ -9,6 +10,7 @@ from src.enums import Modes
 from src.ml_common import Dataset
 
 
+# arff.loadarff() carrega strings em bytes, esta função serve para transformá-las em strings
 def load_arff(filename: str) -> tuple[pd.DataFrame, Any]:
     data, metadata = arff.loadarff(filename)
     frame = pd.DataFrame(data)
@@ -22,21 +24,31 @@ def load_arff(filename: str) -> tuple[pd.DataFrame, Any]:
 
 
 def load_dataset(filename: str, mode: Modes) -> Dataset:
+    start = perf_counter()
+    frame, meta = load_arff(filename)
+
     if not isinstance(mode, Modes):
         mode = Modes(mode)
 
     match mode:
         case Modes.CLASSIFICATION:
-            return load_classification_dataset(filename)
+            features, target, target_names = load_classification_dataset(frame, meta)
         case Modes.REGRESSION:
-            return load_regression_dataset(filename)
+            features, target, target_names = load_regression_dataset(frame)
         case _:
             raise ValueError(f"Unsupported mode: {mode}")
 
+    load_time = perf_counter() - start
+    return Dataset(
+        name=Path(filename).name,
+        features=features,
+        target=target,
+        target_names=target_names,
+        load_time=load_time,
+    )
 
-def load_classification_dataset(filename: str) -> Dataset:
-    frame, meta = load_arff(filename)
 
+def load_classification_dataset(frame, meta) -> Dataset:
     target_column = frame.columns[-1]
     target_values = frame[target_column]
     _validate_classification_target(target_values)
@@ -52,17 +64,10 @@ def load_classification_dataset(filename: str) -> Dataset:
         extract_arff_target_names(meta),
     )
 
-    return Dataset(
-        name=Path(filename).name,
-        features=features,
-        target=target,
-        target_names=target_names,
-    )
+    return features, target, target_names
 
 
-def load_regression_dataset(filename: str) -> Dataset:
-    frame, _ = load_arff(filename)
-
+def load_regression_dataset(frame) -> Dataset:
     target_column = frame.columns[-1]
     target_values = frame[target_column]
     _validate_regression_target(target_values)
@@ -74,12 +79,7 @@ def load_regression_dataset(filename: str) -> Dataset:
     except (TypeError, ValueError) as exc:
         raise ValueError("Regression target must be numeric.") from exc
 
-    return Dataset(
-        name=Path(filename).name,
-        features=features,
-        target=target,
-        target_names=None,
-    )
+    return features, target, None
 
 
 def normalize_target_value(value) -> str:

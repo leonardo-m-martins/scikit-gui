@@ -24,6 +24,7 @@ class Dataset:
     name: str
     features: Any
     target: np.ndarray
+    load_time: float
     target_names: list[str] | None = None
 
 
