@@ -8,7 +8,7 @@ class Methods(str, Enum):
     LOGISTICS = "Logistics"
     MULTILAYER_PERCEPTRON = "Multilayer Perceptron"
     SVC = "SVC"
-    K_STAR = "KStar"
+    K_NEIGHBORS = "K-Neighbors"
     ADABOOSTM1 = "AdaBoostM1"
     LOGITBOOST = "Logitboost"
     VOTE = "Vote"

@@ -2,6 +2,7 @@ from sklearn import metrics as me
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
@@ -70,6 +71,9 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
         preprocessing="StandardScaler",
     ),
     Methods.SVC: ModelSpec(SVC, preprocessing="StandardScaler"),
+    Methods.K_NEIGHBORS: ModelSpec(
+        KNeighborsClassifier, preprocessing="StandardScaler"
+    ),
 }
 
 
