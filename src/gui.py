@@ -1,3 +1,4 @@
+import ast
 import queue
 import threading
 import tkinter as tk
@@ -6,7 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 from src.enums import MethodResultField, Modes
 from src.loader import load_dataset
 from src.ml_classification import CLASSIFICATION_CONFIG
-from src.ml_common import run_all_methods, run_method
+from src.ml_common import ModelSpec, run_all_methods, run_method
 from src.ml_regression import REGRESSION_CONFIG
 from src.shared import (
     ClassificationMetrics,
@@ -137,6 +138,95 @@ class ScrollableFrame(ttk.Frame):
         else:
             self.canvas.yview_scroll(-3 if event.delta > 0 else 3, "units")
         return "break"
+
+
+class ParameterDialog(tk.Toplevel):
+    def __init__(self, parent, spec: ModelSpec, title: str):
+        super().__init__(parent)
+        self.spec = spec
+        self.result: ModelSpec | None = None
+        self.vars: dict[str, tk.StringVar] = {}
+
+        self.title(title)
+        self.transient(parent)
+        self.geometry("560x640")
+        self.minsize(420, 300)
+        self.resizable(True, True)
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+
+        self._build_widgets()
+        self.grab_set()
+        self.focus_set()
+
+    def _build_widgets(self):
+        scroll = ScrollableFrame(self)
+        scroll.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+
+        content = scroll.content
+        content.columnconfigure(1, weight=1)
+
+        defaults = self.spec.model_type().get_params()
+        values = {**defaults, **self.spec.params}
+
+        for row, key in enumerate(sorted(values)):
+            ttk.Label(content, text=key).grid(
+                row=row,
+                column=0,
+                sticky=tk.W,
+                padx=(0, 10),
+                pady=3,
+            )
+
+            var = tk.StringVar(value=repr(values[key]))
+            self.vars[key] = var
+            ttk.Entry(content, textvariable=var).grid(
+                row=row,
+                column=1,
+                sticky=tk.EW,
+                pady=3,
+            )
+
+        action_frame = ttk.Frame(self)
+        action_frame.pack(fill=tk.X, padx=12, pady=(0, 12))
+
+        ttk.Button(
+            action_frame,
+            text="Cancelar",
+            command=self._cancel,
+        ).pack(side=tk.RIGHT)
+
+        ttk.Button(
+            action_frame,
+            text="Aplicar",
+            command=self._apply,
+        ).pack(side=tk.RIGHT, padx=(0, 5))
+
+    def _apply(self):
+        params = {}
+
+        for key, var in self.vars.items():
+            text = var.get().strip()
+            try:
+                params[key] = ast.literal_eval(text)
+            except (SyntaxError, ValueError):
+                params[key] = text
+
+        try:
+            self.spec.model_type(**params)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror(
+                "Invalid parameters",
+                str(exc),
+                parent=self,
+            )
+            return
+
+        self.result = self.spec.update_params(params)
+        self.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.destroy()
 
 
 class ResultsList(ttk.Frame):
@@ -430,8 +520,19 @@ class ConfigPanel(ttk.LabelFrame):
         self.method_box.grid(
             row=2,
             column=1,
-            columnspan=2,
             sticky=tk.EW,
+            pady=10,
+        )
+
+        self.params_button = ttk.Button(
+            self,
+            text="⚙️ Parâmetros",
+            command=self._open_params,
+        )
+        self.params_button.grid(
+            row=2,
+            column=2,
+            padx=(10, 0),
             pady=10,
         )
 
@@ -561,6 +662,7 @@ class ConfigPanel(ttk.LabelFrame):
         self.split_box.configure(state=state)
         self.run_selected_button.configure(state=state)
         self.run_all_button.configure(state=state)
+        self.params_button.configure(state=state)
 
         combo_state = "readonly" if enabled else tk.DISABLED
         self.mode_box.configure(state=combo_state)
@@ -611,6 +713,28 @@ class ConfigPanel(ttk.LabelFrame):
             Modes(self.mode_var.get()),
             self.method_var.get(),
         )
+
+    def _open_params(self):
+        method = self.method_var.get()
+        if not method:
+            messagebox.showwarning("Parameters", "Select a method first.")
+            return
+
+        mode = Modes(self.mode_var.get())
+        spec = MODE_CONFIGS[mode].specs.get(method)
+        if spec is None:
+            messagebox.showwarning("Parameters", "Method is not supported.")
+            return
+
+        dialog = ParameterDialog(
+            self,
+            spec,
+            title=f"Parâmetros — {method}",
+        )
+        self.wait_window(dialog)
+
+        if dialog.result is not None:
+            MODE_CONFIGS[mode].specs[method] = dialog.result
 
     def _browse(self):
         if filename := filedialog.askopenfilename():
