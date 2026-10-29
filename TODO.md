@@ -3,10 +3,9 @@
 - [ ] R03 Adicionar suporte a todos os Métodos Classifier que se adequem do scikit
   - [x] Naive Bayes: Gaussian → GaussianNB, Multinomial → MultinomialNB e Complement → ComplementNB.
   - [x] Lineares e neurais: Logistics → LogisticRegression e Multilayer Perceptron → MLPClassifier.
-  - [ ] SVM e ensembles:
+  - [x] SVM e ensembles:
     - [x] SMO → SVC
     - [x] AdaBoostM1 → AdaBoostClassifier
-    - [ ] Vote → VotingClassifier
     - [x] Decision Tree → DecisionTreeClassifier
     - [x] Random Forest → RandomForestClassifier
   - [ ] Usar SVC com kernel linear para aproximar o padrão do Weka.
