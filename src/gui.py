@@ -1,17 +1,33 @@
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
-from src.enums import MethodResultField, Methods, Modes
+from src.enums import MethodResultField, Modes
 from src.loader import load_dataset
 from src.ml_classification import CLASSIFICATION_CONFIG
 from src.ml_common import run_all_methods, run_method
-from src.shared import ClassificationMetrics, MethodResult, format_metadata
+from src.ml_regression import REGRESSION_CONFIG
+from src.shared import (
+    ClassificationMetrics,
+    MethodResult,
+    RegressionMetrics,
+    format_metadata,
+)
 
 DEFAULT_FILE = "./data/spambase.arff"
 
 SORT_NEWEST = "Mais novo"
 SORT_OLDEST = "Mais velho"
 SORT_OPTIONS = (SORT_NEWEST, SORT_OLDEST)
+
+MODE_CONFIGS = {
+    Modes.CLASSIFICATION: CLASSIFICATION_CONFIG,
+    Modes.REGRESSION: REGRESSION_CONFIG,
+}
+
+
+def method_values(mode: Modes) -> list[str]:
+    return [method.value for method in MODE_CONFIGS[mode].specs]
+
 
 METADATA_FIELDS = tuple(
     field for field in MethodResultField if field is not MethodResultField.model_params
@@ -267,9 +283,12 @@ class MetricsPanel(ttk.LabelFrame):
         for label in self.metric_labels.values():
             label.pack(anchor=tk.W, pady=3)
 
-        ttk.Label(self, text="Matriz de Confusão:", style=STYLE_SECTION).pack(
-            anchor=tk.W, pady=(8, 4)
+        self.confusion_title = ttk.Label(
+            self,
+            text="Matriz de Confusão:",
+            style=STYLE_SECTION,
         )
+        self.confusion_title.pack(anchor=tk.W, pady=(8, 4))
         self.confusion = ConfusionMatrixView(self)
         self.confusion.pack(fill=tk.X)
         self.confusion.clear()
@@ -277,6 +296,11 @@ class MetricsPanel(ttk.LabelFrame):
     def render(self, result):
         if isinstance(result.metrics, ClassificationMetrics):
             metrics = result.metrics
+
+            self.configure(text=" 📊 Métricas (média macro) ")
+            self.confusion_title.pack(anchor=tk.W, pady=(8, 4))
+            self.confusion.pack(fill=tk.X)
+
             self.metric_labels["acc"].config(
                 text=f"Acurácia: {metrics.accuracy*100:.2f}%"
             )
@@ -287,6 +311,23 @@ class MetricsPanel(ttk.LabelFrame):
             self.metric_labels["f1"].config(text=f"F1-measure: {metrics.f1*100:.2f}%")
             self.confusion.render(metrics.confusion_matrix, result.class_names)
             return
+
+        if isinstance(result.metrics, RegressionMetrics):
+            metrics = result.metrics
+
+            self.configure(text=" 📊 Métricas de Regressão ")
+            self.confusion_title.pack_forget()
+            self.confusion.pack_forget()
+
+            self.metric_labels["acc"].config(text=f"MAE: {metrics.mae:.4f}")
+            self.metric_labels["prec"].config(text=f"MSE: {metrics.mse:.4f}")
+            self.metric_labels["rec"].config(text=f"RMSE: {metrics.rmse:.4f}")
+            self.metric_labels["f1"].config(text=f"R²: {metrics.r2:.4f}")
+            return
+
+        self.configure(text=" 📊 Métricas (média macro) ")
+        self.confusion_title.pack(anchor=tk.W, pady=(8, 4))
+        self.confusion.pack(fill=tk.X)
 
         for key, name in METRIC_NAMES.items():
             self.metric_labels[key].config(text=f"{name}: -")
@@ -333,10 +374,12 @@ class ConfigPanel(ttk.LabelFrame):
         self._on_run_all = on_run_all
 
         self.path_var = tk.StringVar(value=DEFAULT_FILE)
+        self.mode_var = tk.StringVar(value=Modes.CLASSIFICATION.value)
         self.method_var = tk.StringVar()
         self.split_var = tk.IntVar(value=20)
+        self.dataset = None
+        self._loaded_mode = Modes.CLASSIFICATION
         self.columnconfigure(1, weight=1)
-        self._update_dataset()
 
         ttk.Label(self, text="📁 Arquivo de Dados:").grid(
             row=0, column=0, sticky=tk.W, pady=(0, 10), padx=(0, 10)
@@ -348,18 +391,43 @@ class ConfigPanel(ttk.LabelFrame):
             row=0, column=2, pady=(0, 10)
         )
 
-        ttk.Label(self, text="🛠️ Método:").grid(
+        ttk.Label(self, text="🎚️ Modo:").grid(
             row=1, column=0, sticky=tk.W, pady=10, padx=(0, 10)
         )
-        ttk.Combobox(
+        self.mode_box = ttk.Combobox(
+            self,
+            textvariable=self.mode_var,
+            values=Modes.values(),
+            state="readonly",
+        )
+        self.mode_box.grid(
+            row=1,
+            column=1,
+            columnspan=2,
+            sticky=tk.EW,
+            pady=10,
+        )
+        self.mode_box.bind("<<ComboboxSelected>>", self._on_mode_changed)
+
+        ttk.Label(self, text="🛠️ Método:").grid(
+            row=2, column=0, sticky=tk.W, pady=10, padx=(0, 10)
+        )
+        self.method_box = ttk.Combobox(
             self,
             textvariable=self.method_var,
-            values=Methods.values(),
+            values=method_values(Modes.CLASSIFICATION),
             state="readonly",
-        ).grid(row=1, column=1, columnspan=2, sticky=tk.EW, pady=10)
+        )
+        self.method_box.grid(
+            row=2,
+            column=1,
+            columnspan=2,
+            sticky=tk.EW,
+            pady=10,
+        )
 
         ttk.Label(self, text="📊 % de Teste:").grid(
-            row=2, column=0, sticky=tk.W, pady=10, padx=(0, 10)
+            row=3, column=0, sticky=tk.W, pady=10, padx=(0, 10)
         )
         ttk.Spinbox(
             self,
@@ -367,10 +435,10 @@ class ConfigPanel(ttk.LabelFrame):
             from_=0,
             to=100,
             increment=1,
-        ).grid(row=2, column=1, columnspan=2, sticky=tk.EW, pady=10)
+        ).grid(row=3, column=1, columnspan=2, sticky=tk.EW, pady=10)
 
         action_frame = ttk.Frame(self)
-        action_frame.grid(row=3, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
+        action_frame.grid(row=4, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
 
         ttk.Button(
             action_frame,
@@ -384,16 +452,46 @@ class ConfigPanel(ttk.LabelFrame):
             command=self._on_run_all,
         ).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(5, 0))
 
+        self._update_dataset()
+
     def get_values(self):
-        return self.dataset, int(self.split_var.get()), self.method_var.get()
+        return (
+            self.dataset,
+            int(self.split_var.get()),
+            Modes(self.mode_var.get()),
+            self.method_var.get(),
+        )
 
     def _browse(self):
         if filename := filedialog.askopenfilename():
             self.path_var.set(filename)
             self._update_dataset()
 
-    def _update_dataset(self):
-        self.dataset = load_dataset(self.path_var.get(), mode=Modes.CLASSIFICATION)
+    def _on_mode_changed(self, _event=None):
+        previous_mode = self._loaded_mode
+        self._update_method_values()
+
+        if not self._update_dataset():
+            self.mode_var.set(previous_mode.value)
+            self._update_method_values()
+
+    def _update_method_values(self):
+        mode = Modes(self.mode_var.get())
+        self.method_box.configure(values=method_values(mode))
+        self.method_var.set("")
+
+    def _update_dataset(self) -> bool:
+        mode = Modes(self.mode_var.get())
+
+        try:
+            dataset = load_dataset(self.path_var.get(), mode=mode)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Dataset error", str(exc))
+            return False
+
+        self.dataset = dataset
+        self._loaded_mode = mode
+        return True
 
 
 class App:
@@ -413,16 +511,31 @@ class App:
         self.results_view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
     def run_selected(self):
-        dataset, split, method = self.config.get_values()
-        result = run_method(method, dataset, split, CLASSIFICATION_CONFIG)
+        dataset, split, mode, method = self.config.get_values()
+        mode_config = MODE_CONFIGS[mode]
+
+        result = run_method(
+            method,
+            dataset,
+            split,
+            mode_config,
+            stratify=mode is Modes.CLASSIFICATION,
+        )
         if result is None:
             return
         self.results.append(result)
         self.results_view.refresh(self.results)
 
     def run_all(self):
-        dataset, split, _ = self.config.get_values()
-        results = run_all_methods(dataset, split, CLASSIFICATION_CONFIG)
+        dataset, split, mode, _ = self.config.get_values()
+        mode_config = MODE_CONFIGS[mode]
+
+        results = run_all_methods(
+            dataset,
+            split,
+            mode_config,
+            stratify=mode is Modes.CLASSIFICATION,
+        )
         self.results.extend(results)
         self.results_view.refresh(self.results)
 
