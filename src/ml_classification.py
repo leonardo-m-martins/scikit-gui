@@ -1,5 +1,3 @@
-from functools import partial
-
 from sklearn import metrics as me
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -8,10 +6,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 from src.enums import Methods
-from src.ml_common import Dataset, ModelSpec, run_pipeline
-from src.shared import ClassificationMetrics, MethodResult
+from src.ml_common import ModeConfig, ModelSpec
+from src.shared import ClassificationMetrics
 
-MODEL_SPECS: dict[Methods, ModelSpec] = {
+_MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.MULTILAYER_PERCEPTRON: ModelSpec(
         MLPClassifier,
         {
@@ -86,31 +84,4 @@ def classification_metrics(y_true, y_pred, labels=None) -> ClassificationMetrics
     return ClassificationMetrics(ac, pr, re, f1, cm)
 
 
-def run_individual_method(
-    dataset: Dataset, split, method: Methods, METHOD_RESULTS: list[MethodResult]
-):
-    spec = MODEL_SPECS.get(method)
-    if spec is None:
-        print(f"Method {method} is not supported!")
-        return
-
-    metrics_fn = partial(
-        classification_metrics,
-        labels=dataset.target_names,
-    )
-
-    result = run_pipeline(
-        method,
-        dataset,
-        split,
-        spec,
-        metrics_fn,
-        load_time=dataset.load_time,
-        stratify=True,
-    )
-    METHOD_RESULTS.append(result)
-
-
-def run_all_methods(filename: str, split: int, METHOD_RESULTS: list[MethodResult]):
-    for method in Methods.values():
-        run_individual_method(filename, split, method, METHOD_RESULTS)
+CLASSIFICATION_CONFIG = ModeConfig(_MODEL_SPECS, classification_metrics)

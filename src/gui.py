@@ -3,7 +3,8 @@ from tkinter import filedialog, ttk
 
 from src.enums import MethodResultField, Methods, Modes
 from src.loader import load_dataset
-from src.ml_clas_sk import run_all_methods, run_individual_method
+from src.ml_classification import CLASSIFICATION_CONFIG
+from src.ml_common import run_all_methods, run_method
 from src.shared import ClassificationMetrics, MethodResult, format_metadata
 
 DEFAULT_FILE = "./data/spambase.arff"
@@ -413,12 +414,16 @@ class App:
 
     def run_selected(self):
         dataset, split, method = self.config.get_values()
-        run_individual_method(dataset, split, method, self.results)
+        result = run_method(method, dataset, split, CLASSIFICATION_CONFIG)
+        if result is None:
+            return
+        self.results.append(result)
         self.results_view.refresh(self.results)
 
     def run_all(self):
         dataset, split, _ = self.config.get_values()
-        run_all_methods(dataset, split, self.results)
+        results = run_all_methods(dataset, split, CLASSIFICATION_CONFIG)
+        self.results.extend(results)
         self.results_view.refresh(self.results)
 
 

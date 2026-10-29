@@ -1,6 +1,7 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 import numpy as np
@@ -8,6 +9,7 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from src.enums import Methods
 from src.shared import MethodResult, Metrics
 
 
@@ -29,6 +31,12 @@ class Dataset:
 
 
 MetricsFunction = Callable[[np.ndarray, np.ndarray], Metrics]
+
+
+@dataclass(frozen=True)
+class ModeConfig:
+    specs: dict[Methods, ModelSpec]
+    metrics_fn: MetricsFunction
 
 
 def get_model_params(
@@ -74,17 +82,21 @@ def apply_preprocessing(spec: ModelSpec, features_train, features_test):
     return features_train, features_test
 
 
-def run_pipeline(
-    method_name: str,
+def run_method(
+    method: Methods,
     dataset: Dataset,
     split: float,
-    spec: ModelSpec,
-    metrics_fn: MetricsFunction,
+    mode_config: ModeConfig,
     *,
-    load_time: float = 0.0,
     stratify: bool = False,
     random_state: int = 42,
 ) -> MethodResult:
+    spec = mode_config.specs.get(method)
+    if spec is None:
+        print(f"Method {method} is not supported!")
+        return
+    metrics_fn = partial(mode_config.metrics_fn, labels=dataset.target_names)
+
     features_train, features_test, target_train, target_test = train_test_split(
         dataset.features,
         dataset.target,
@@ -113,7 +125,7 @@ def run_pipeline(
     test_time = time.perf_counter() - start
 
     return MethodResult(
-        method_name,
+        method,
         metrics,
         dataset_name=dataset.name,
         n_samples=len(dataset.target),
@@ -122,7 +134,7 @@ def run_pipeline(
         n_train=len(features_train),
         n_test=len(features_test),
         test_split=split,
-        load_time=load_time,
+        load_time=dataset.load_time,
         train_time=train_time,
         test_time=test_time,
         random_state=random_state,
@@ -130,3 +142,27 @@ def run_pipeline(
         preprocessing=spec.preprocessing,
         class_names=dataset.target_names or [],
     )
+
+
+def run_all_methods(
+    dataset: Dataset,
+    split: float,
+    mode_config: ModeConfig,
+    *,
+    stratify: bool = False,
+    random_state: int = 42,
+) -> list[MethodResult]:
+    results = []
+    for method in Methods.values():
+        result = run_method(
+            method,
+            dataset,
+            split,
+            mode_config,
+            stratify=stratify,
+            random_state=random_state,
+        )
+        if result is not None:
+            results.append(result)
+
+    return results
