@@ -16,6 +16,12 @@ from src.shared import (
     format_metadata,
 )
 
+try:
+    from sklearn.utils._param_validation import Hidden, StrOptions
+except ImportError:
+    Hidden = None
+    StrOptions = None
+
 DEFAULT_FILE = "./data/spambase.arff"
 
 SORT_NEWEST = "Mais novo"
@@ -30,6 +36,39 @@ MODE_CONFIGS = {
 
 def method_values(mode: Modes) -> list[str]:
     return [method.value for method in MODE_CONFIGS[mode].specs]
+
+
+def string_parameter_options(
+    model,
+    parameter_name,
+) -> tuple[list[str], bool] | None:
+    constraints = getattr(model, "_parameter_constraints", {}).get(
+        parameter_name,
+        (),
+    )
+
+    options = []
+    allows_none = False
+    has_other_types = False
+
+    for constraint in constraints:
+        if StrOptions is not None and isinstance(constraint, StrOptions):
+            options.extend(constraint.options)
+        elif constraint is None or constraint is type(None):
+            allows_none = True
+        elif Hidden is not None and isinstance(constraint, Hidden):
+            continue
+        else:
+            has_other_types = True
+
+    if not options:
+        return None
+
+    result = sorted(set(options))
+    if allows_none:
+        result.append("None")
+
+    return result, not has_other_types
 
 
 METADATA_FIELDS = tuple(
@@ -165,7 +204,8 @@ class ParameterDialog(tk.Toplevel):
         content = scroll.content
         content.columnconfigure(1, weight=1)
 
-        defaults = self.spec.model_type().get_params()
+        model = self.spec.model_type()
+        defaults = model.get_params()
         values = {**defaults, **self.spec.params}
 
         for row, key in enumerate(sorted(values)):
@@ -177,9 +217,35 @@ class ParameterDialog(tk.Toplevel):
                 pady=3,
             )
 
-            var = tk.StringVar(value=repr(values[key]))
+            value = values[key]
+            option_info = string_parameter_options(model, key)
+
+            if option_info is not None:
+                options, read_only = option_info
+                use_combobox = (value is None or isinstance(value, str)) and (
+                    value is None or value in options
+                )
+            else:
+                options = []
+                read_only = False
+                use_combobox = False
+
+            if use_combobox:
+                var = tk.StringVar(
+                    value="None" if value is None else value,
+                )
+                widget = ttk.Combobox(
+                    content,
+                    textvariable=var,
+                    values=options,
+                    state="readonly" if read_only else "normal",
+                )
+            else:
+                var = tk.StringVar(value=repr(value))
+                widget = ttk.Entry(content, textvariable=var)
+
             self.vars[key] = var
-            ttk.Entry(content, textvariable=var).grid(
+            widget.grid(
                 row=row,
                 column=1,
                 sticky=tk.EW,
