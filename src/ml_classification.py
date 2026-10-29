@@ -7,7 +7,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-from src.enums import Methods
+from src.enums import Methods, Preprocessors
 from src.ml_common import ModeConfig, ModelSpec
 from src.shared import ClassificationMetrics
 
@@ -30,7 +30,7 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
             "learning_rate",
             "max_iter",
         ),
-        preprocessing="StandardScaler",
+        preprocessing=Preprocessors.STANDARD_SCALER,
     ),
     Methods.RANDOM_FOREST: ModelSpec(
         RandomForestClassifier,
@@ -68,11 +68,11 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
         LogisticRegression,
         {"random_state": 42, "max_iter": 10000},
         ("max_iter"),
-        preprocessing="StandardScaler",
+        preprocessing=Preprocessors.STANDARD_SCALER,
     ),
-    Methods.SVC: ModelSpec(SVC, preprocessing="StandardScaler"),
+    Methods.SVC: ModelSpec(SVC, preprocessing=Preprocessors.STANDARD_SCALER),
     Methods.K_NEIGHBORS: ModelSpec(
-        KNeighborsClassifier, preprocessing="StandardScaler"
+        KNeighborsClassifier, preprocessing=Preprocessors.STANDARD_SCALER
     ),
 }
 

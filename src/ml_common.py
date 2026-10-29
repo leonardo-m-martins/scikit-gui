@@ -7,9 +7,9 @@ from typing import Any
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
-from src.enums import Methods
+from src.enums import Methods, Preprocessors
 from src.shared import MethodResult, Metrics
 
 
@@ -18,10 +18,18 @@ class ModelSpec:
     model_type: type[BaseEstimator]
     params: dict[str, Any] = field(default_factory=dict)
     display_keys: tuple[str, ...] = ()
-    preprocessing: str | None = None
+    preprocessing: Preprocessors = Preprocessors.NONE
 
     def update_params(self, params: dict[str, Any]) -> "ModelSpec":
         return replace(self, params={**self.params, **params})
+
+
+PREPROCESSOR_TYPES = {
+    Preprocessors.NONE: None,
+    Preprocessors.STANDARD_SCALER: StandardScaler,
+    Preprocessors.MIN_MAX_SCALER: MinMaxScaler,
+    Preprocessors.ROBUST_SCALER: RobustScaler,
+}
 
 
 @dataclass(frozen=True)
@@ -76,12 +84,14 @@ def evaluate_model(
 
 
 def apply_preprocessing(spec: ModelSpec, features_train, features_test):
-    if spec.preprocessing != "StandardScaler":
+    preprocessor_type = PREPROCESSOR_TYPES[spec.preprocessing]
+
+    if preprocessor_type is None:
         return features_train, features_test
 
-    scaler = StandardScaler()
-    features_train = scaler.fit_transform(features_train)
-    features_test = scaler.transform(features_test)
+    preprocessor = preprocessor_type()
+    features_train = preprocessor.fit_transform(features_train)
+    features_test = preprocessor.transform(features_test)
     return features_train, features_test
 
 
@@ -142,7 +152,11 @@ def run_method(
         test_time=test_time,
         random_state=random_state,
         model_params=get_model_params(model, spec.display_keys),
-        preprocessing=spec.preprocessing,
+        preprocessing=(
+            spec.preprocessing.value
+            if spec.preprocessing is not Preprocessors.NONE
+            else None
+        ),
         class_names=dataset.target_names or [],
     )
 

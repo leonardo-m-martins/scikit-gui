@@ -3,7 +3,7 @@ from sklearn import metrics as me
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 
-from src.enums import Methods
+from src.enums import Methods, Preprocessors
 from src.ml_common import ModeConfig, ModelSpec
 from src.shared import RegressionMetrics
 
@@ -28,7 +28,7 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
             "max_iter",
             "random_state",
         ),
-        preprocessing="StandardScaler",
+        preprocessing=Preprocessors.STANDARD_SCALER,
     ),
     Methods.RANDOM_FOREST: ModelSpec(
         RandomForestRegressor,

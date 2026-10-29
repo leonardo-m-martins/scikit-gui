@@ -31,6 +31,17 @@ class Modes(str, Enum):
         return [mode.value for mode in Modes]
 
 
+class Preprocessors(str, Enum):
+    NONE = "Nenhum"
+    STANDARD_SCALER = "StandardScaler"
+    MIN_MAX_SCALER = "MinMaxScaler"
+    ROBUST_SCALER = "RobustScaler"
+
+    @staticmethod
+    def values():
+        return [preprocessor.value for preprocessor in Preprocessors]
+
+
 class MethodResultField(str, Enum):
     method_name = "Método:"
     timestamp = "Execução:"
