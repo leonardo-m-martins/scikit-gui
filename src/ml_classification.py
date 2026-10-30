@@ -2,6 +2,7 @@ from sklearn import metrics as me
 from sklearn.ensemble import (
     AdaBoostClassifier,
     GradientBoostingClassifier,
+    HistGradientBoostingClassifier,
     RandomForestClassifier,
 )
 from sklearn.linear_model import LogisticRegression
@@ -79,6 +80,7 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
         KNeighborsClassifier, preprocessing=Preprocessors.STANDARD_SCALER
     ),
     Methods.GRADIENT_BOOSTING: ModelSpec(GradientBoostingClassifier),
+    Methods.HIST_GRADIENT_BOOST: ModelSpec(HistGradientBoostingClassifier),
 }
 
 
