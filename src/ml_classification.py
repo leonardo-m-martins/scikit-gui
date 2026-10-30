@@ -1,5 +1,9 @@
 from sklearn import metrics as me
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn.ensemble import (
+    AdaBoostClassifier,
+    GradientBoostingClassifier,
+    RandomForestClassifier,
+)
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -74,6 +78,7 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.K_NEIGHBORS: ModelSpec(
         KNeighborsClassifier, preprocessing=Preprocessors.STANDARD_SCALER
     ),
+    Methods.GRADIENT_BOOSTING: ModelSpec(GradientBoostingClassifier),
 }
 
 

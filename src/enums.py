@@ -10,11 +10,10 @@ class Methods(str, Enum):
     SVC = "SVC"
     K_NEIGHBORS = "K-Neighbors"
     ADABOOSTM1 = "AdaBoostM1"
-    LOGITBOOST = "Logitboost"
-    VOTE = "Vote"
+    GRADIENT_BOOSTING = "Gradient Boosting"
+    HIST_GRADIENT_BOOST = "Hist Gradient Boosting"
     DECISION_TABLE = "Decision table"
     DECISION_TREE = "Decision Tree"
-    J48 = "J48"
     RANDOM_FOREST = "Random Forest"
 
     @staticmethod
