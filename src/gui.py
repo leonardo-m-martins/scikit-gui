@@ -1,4 +1,5 @@
 import ast
+import json
 import math
 import queue
 import threading
@@ -7,11 +8,17 @@ from tkinter import filedialog, messagebox, ttk
 
 import numpy as np
 
-from src.enums import MethodResultField, Modes, Preprocessors
+from src.enums import MethodResultField, Methods, Modes, Preprocessors
 from src.loader import load_dataset
 from src.ml_classification import CLASSIFICATION_CONFIG
 from src.ml_common import ModelSpec, run_all_methods, run_method
 from src.ml_regression import REGRESSION_CONFIG
+from src.parameters import (
+    ParameterFileError,
+    build_payload,
+    default_filename,
+    parse_payload,
+)
 from src.shared import (
     ClassificationMetrics,
     MethodResult,
@@ -196,11 +203,22 @@ class ScrollableFrame(ttk.Frame):
 
 
 class ParameterDialog(tk.Toplevel):
-    def __init__(self, parent, spec: ModelSpec, title: str):
+    def __init__(
+        self,
+        parent,
+        spec: ModelSpec,
+        mode: Modes,
+        method: Methods,
+        title: str,
+    ):
         super().__init__(parent)
         self.spec = spec
+        self.mode = mode
+        self.method = method
+        self.pending_preprocessing = spec.preprocessing
         self.result: ModelSpec | None = None
         self.vars: dict[str, tk.StringVar] = {}
+        self.combobox_keys: set[str] = set()
 
         self.title(title)
         self.transient(parent)
@@ -247,6 +265,7 @@ class ParameterDialog(tk.Toplevel):
                 use_combobox = False
 
             if use_combobox:
+                self.combobox_keys.add(key)
                 var = tk.StringVar(
                     value="None" if value is None else value,
                 )
@@ -273,6 +292,18 @@ class ParameterDialog(tk.Toplevel):
 
         ttk.Button(
             action_frame,
+            text="📥 Importar",
+            command=self._import_params,
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            action_frame,
+            text="📤 Exportar",
+            command=self._export_params,
+        ).pack(side=tk.LEFT, padx=(5, 0))
+
+        ttk.Button(
+            action_frame,
             text="Cancelar",
             command=self._cancel,
         ).pack(side=tk.RIGHT)
@@ -283,7 +314,7 @@ class ParameterDialog(tk.Toplevel):
             command=self._apply,
         ).pack(side=tk.RIGHT, padx=(0, 5))
 
-    def _apply(self):
+    def _collect_params(self):
         params = {}
 
         for key, var in self.vars.items():
@@ -301,10 +332,129 @@ class ParameterDialog(tk.Toplevel):
                 str(exc),
                 parent=self,
             )
+            return None
+
+        return params
+
+    def _apply(self):
+        params = self._collect_params()
+        if params is None:
             return
 
-        self.result = self.spec.update_params(params)
+        self.result = self.spec.update_params(
+            params,
+            preprocessing=self.pending_preprocessing,
+        )
         self.destroy()
+
+    def _export_params(self):
+        params = self._collect_params()
+        if params is None:
+            return
+
+        filename = filedialog.asksaveasfilename(
+            parent=self,
+            defaultextension=".json",
+            initialfile=default_filename(self.mode, self.method),
+            filetypes=[
+                ("Arquivo JSON", "*.json"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not filename:
+            return
+
+        payload = build_payload(
+            self.mode,
+            self.method,
+            ModelSpec(
+                model_type=self.spec.model_type,
+                params=params,
+                preprocessing=self.pending_preprocessing,
+            ),
+        )
+        try:
+            with open(filename, "w", encoding="utf-8") as file:
+                json.dump(payload, file, ensure_ascii=False, indent=2)
+                file.write("\n")
+        except (OSError, TypeError, ValueError) as exc:
+            messagebox.showerror(
+                "Exportar parâmetros",
+                str(exc),
+                parent=self,
+            )
+            return
+
+        messagebox.showinfo(
+            "Exportar parâmetros",
+            f"Parâmetros de {self.method.value} exportados para:\n{filename}",
+            parent=self,
+        )
+
+    def _import_params(self):
+        filename = filedialog.askopenfilename(
+            parent=self,
+            filetypes=[
+                ("Arquivo JSON", "*.json"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not filename:
+            return
+
+        try:
+            with open(filename, encoding="utf-8") as file:
+                payload = json.load(file)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror(
+                "Importar parâmetros",
+                str(exc),
+                parent=self,
+            )
+            return
+
+        file_method = payload.get("method") if isinstance(payload, dict) else None
+        if file_method != self.method.value:
+            messagebox.showerror(
+                "Importar parâmetros",
+                f"O arquivo é do método {file_method!r}, "
+                f"mas este diálogo edita {self.method.value!r}.",
+                parent=self,
+            )
+            return
+
+        try:
+            _, imported = parse_payload(
+                payload,
+                self.mode,
+                {self.method: self.spec},
+            )
+        except ParameterFileError as exc:
+            messagebox.showerror(
+                "Importar parâmetros",
+                str(exc),
+                parent=self,
+            )
+            return
+
+        self.pending_preprocessing = imported.preprocessing
+        defaults = self.spec.model_type().get_params()
+        values = {**defaults, **imported.params}
+
+        for key, var in self.vars.items():
+            value = values[key]
+            if key in self.combobox_keys:
+                var.set("None" if value is None else str(value))
+            else:
+                var.set(repr(value))
+
+        messagebox.showinfo(
+            "Importar parâmetros",
+            f"Parâmetros de {self.method.value} carregados.\n"
+            "Clique em Aplicar para confirmar.\n"
+            f"Pré-processamento: {imported.preprocessing.value}",
+            parent=self,
+        )
 
     def _cancel(self):
         self.result = None
@@ -1309,12 +1459,15 @@ class ConfigPanel(ttk.LabelFrame):
         dialog = ParameterDialog(
             self,
             spec,
+            mode=mode,
+            method=Methods(method),
             title=f"Parâmetros — {method}",
         )
         self.wait_window(dialog)
 
         if dialog.result is not None:
             MODE_CONFIGS[mode].specs[method] = dialog.result
+            self._on_method_changed()
 
     def _browse(self):
         if filename := filedialog.askopenfilename():
