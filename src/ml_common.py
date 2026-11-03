@@ -17,7 +17,6 @@ from src.shared import MethodResult, Metrics
 class ModelSpec:
     model_type: type[BaseEstimator]
     params: dict[str, Any] = field(default_factory=dict)
-    display_keys: tuple[str, ...] = ()
     preprocessing: Preprocessors = Preprocessors.NONE
 
     def update_params(
@@ -59,18 +58,6 @@ MetricsFunction = Callable[[np.ndarray, np.ndarray], Metrics]
 class ModeConfig:
     specs: dict[Methods, ModelSpec]
     metrics_fn: MetricsFunction
-
-
-def get_model_params(
-    model: BaseEstimator,
-    display_keys: tuple[str, ...] = (),
-) -> dict:
-    params = model.get_params()
-    summary = {key: params[key] for key in display_keys if key in params}
-    n_iter = getattr(model, "n_iter_", None)
-    if n_iter is not None:
-        summary["n_iter_"] = int(np.atleast_1d(n_iter).max())
-    return summary
 
 
 def train_model(
@@ -162,7 +149,7 @@ def run_method(
         train_time=train_time,
         test_time=test_time,
         random_state=random_state,
-        model_params=get_model_params(model, spec.display_keys),
+        model_params=model.get_params(),
         preprocessing=(
             spec.preprocessing.value
             if spec.preprocessing is not Preprocessors.NONE

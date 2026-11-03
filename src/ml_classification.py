@@ -27,14 +27,6 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
             "learning_rate": "adaptive",
             "max_iter": 10000,
         },
-        (
-            "hidden_layer_sizes",
-            "activation",
-            "solver",
-            "alpha",
-            "learning_rate",
-            "max_iter",
-        ),
         preprocessing=Preprocessors.STANDARD_SCALER,
     ),
     Methods.RANDOM_FOREST: ModelSpec(
@@ -48,23 +40,14 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
             "random_state": 42,
             "n_jobs": -1,
         },
-        (
-            "n_estimators",
-            "criterion",
-            "max_depth",
-            "min_samples_split",
-            "min_samples_leaf",
-        ),
     ),
     Methods.DECISION_TREE: ModelSpec(
         DecisionTreeClassifier,
         {"criterion": "entropy", "random_state": 42},
-        ("criterion", "max_depth"),
     ),
     Methods.ADABOOSTM1: ModelSpec(
         AdaBoostClassifier,
         {"random_state": 42},
-        ("n_estimators", "learning_rate"),
     ),
     Methods.GAUSSIAN_NAIVE_BAYES: ModelSpec(GaussianNB),
     Methods.MULTI_NAIVE_BAYES: ModelSpec(MultinomialNB),
@@ -72,7 +55,6 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.LOGISTICS: ModelSpec(
         LogisticRegression,
         {"random_state": 42, "max_iter": 10000},
-        ("max_iter"),
         preprocessing=Preprocessors.STANDARD_SCALER,
     ),
     Methods.SVC: ModelSpec(SVC, preprocessing=Preprocessors.STANDARD_SCALER),
