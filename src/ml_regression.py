@@ -1,6 +1,13 @@
 import numpy as np
 from sklearn import metrics as me
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import (
+    AdaBoostRegressor,
+    GradientBoostingRegressor,
+    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 
 from src.enums import Methods, Preprocessors
@@ -51,6 +58,11 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
             "n_jobs",
         ),
     ),
+    Methods.ADABOOSTM1: ModelSpec(AdaBoostRegressor),
+    Methods.GRADIENT_BOOSTING: ModelSpec(GradientBoostingRegressor),
+    Methods.HIST_GRADIENT_BOOST: ModelSpec(HistGradientBoostingRegressor),
+    Methods.LOGISTICS: ModelSpec(LogisticRegression),
+    Methods.K_NEIGHBORS: ModelSpec(KNeighborsRegressor),
 }
 
 

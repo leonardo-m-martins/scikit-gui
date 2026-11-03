@@ -8,17 +8,17 @@
     - [x] AdaBoostM1 → AdaBoostClassifier
     - [x] Decision Tree → DecisionTreeClassifier
     - [x] Random Forest → RandomForestClassifier
-  - [ ] Usar SVC com kernel linear para aproximar o padrão do Weka.
+  - [x] Usar SVC com kernel linear para aproximar o padrão do Weka.
   - Sem equivalente direto: KStar, Logitboost, Decision table e J48.
   - [ ] Análogos, não equivalentes:
-    - [ ] KNeighborsClassifier para KStar
-    - [ ] GradientBoostingClassifier com log loss para Logitboost
+    - [x] KNeighborsClassifier para KStar
+    - [x] GradientBoostingClassifier com log loss para Logitboost
     - [ ] DecisionTreeClassifier com criterion entropy para J48
   - Multinomial e Complement exigem features não negativas; SVC, LogisticRegression e MLPClassifier precisam de padronização.
   - Vote exige estimadores base definidos.
   - [x] Ignorar métodos sem suporte em run_all_methods sem interromper a execução.
 - [ ] R04 Adicionar suporte a todos os Métodos Regressor que se adequem do scikit
-  - [ ] Integrar ml_reg_sk.py à aplicação; hoje ele é um script isolado.
+  - [x] Integrar ml_reg_sk.py à aplicação; hoje ele é um script isolado.
   - [ ] Lineares: LinearRegression, Ridge, Lasso e ElasticNet.
   - [ ] Vizinhos e árvores: KNeighborsRegressor, DecisionTreeRegressor, RandomForestRegressor e ExtraTreesRegressor.
   - [ ] Outros: HistGradientBoostingRegressor, SVR, HuberRegressor e MLPRegressor.
