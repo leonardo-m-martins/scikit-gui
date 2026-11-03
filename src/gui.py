@@ -901,14 +901,11 @@ class ClassDistributionView(ttk.Frame):
             )
 
 
-class DataView(ttk.Frame):
+class DataSummaryView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         self.dataset = None
         self.mode = Modes.CLASSIFICATION
-        self._page = 0
-        self._page_size = DEFAULT_PAGE_SIZE
-        self._row_count = 0
         self._classes_visible = True
 
         self.columnconfigure(0, weight=1)
@@ -917,36 +914,19 @@ class DataView(ttk.Frame):
         self.summary = SummaryBar(self)
         self.summary.grid(row=0, column=0, sticky=tk.EW, padx=15, pady=(15, 5))
 
-        self.paned = ttk.PanedWindow(self, orient=tk.VERTICAL)
-        self.paned.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
-
-        self.table = DatasetTable(
-            self.paned,
-            on_page_change=self._on_page_change,
-            on_page_size_change=self._on_page_size_change,
-        )
-        self.paned.add(self.table, weight=3)
-
-        self.details = ttk.Notebook(self.paned)
+        self.details = ttk.Notebook(self)
         self.stats = StatsView(self.details)
         self.classes = ClassDistributionView(self.details)
         self.details.add(self.stats, text=" 📈 Estatísticas ")
         self.details.add(self.classes, text=" 🏷️ Classes ")
-        self.paned.add(self.details, weight=2)
+        self.details.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
 
     def render(self, dataset, mode):
         self.dataset = dataset
         self.mode = mode if isinstance(mode, Modes) else Modes(mode)
-        self._row_count = len(dataset.target) if dataset is not None else 0
-        self._page = 0
 
         self.summary.render(dataset, self.mode)
-        self.table.set_columns(
-            dataset.feature_names if dataset is not None else [],
-            dataset.target_name if dataset is not None else "",
-        )
         self._update_classes_tab()
-        self._render_page()
         self.stats.render(dataset, self.mode)
         self.classes.render(dataset, self.mode)
 
@@ -958,6 +938,48 @@ class DataView(ttk.Frame):
         elif not visible and self._classes_visible:
             self.details.hide(self.classes)
             self._classes_visible = False
+
+
+class DataView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.dataset = None
+        self._page = 0
+        self._page_size = DEFAULT_PAGE_SIZE
+        self._row_count = 0
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        self.file_var = tk.StringVar(value="Nenhum dataset carregado.")
+        ttk.Label(self, textvariable=self.file_var, style=STYLE_SECTION).grid(
+            row=0,
+            column=0,
+            sticky=tk.W,
+            padx=15,
+            pady=(15, 5),
+        )
+
+        self.table = DatasetTable(
+            self,
+            on_page_change=self._on_page_change,
+            on_page_size_change=self._on_page_size_change,
+        )
+        self.table.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
+
+    def render(self, dataset):
+        self.dataset = dataset
+        self._row_count = len(dataset.target) if dataset is not None else 0
+        self._page = 0
+
+        self.file_var.set(
+            f"📁 {dataset.name}" if dataset is not None else "Nenhum dataset carregado."
+        )
+        self.table.set_columns(
+            dataset.feature_names if dataset is not None else [],
+            dataset.target_name if dataset is not None else "",
+        )
+        self._render_page()
 
     def _on_page_change(self, page):
         self._page = page
@@ -1386,15 +1408,18 @@ class App:
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
 
+        self.summary_view = DataSummaryView(self.notebook)
         self.data_view = DataView(self.notebook)
         self.results_view = ResultsView(self.notebook)
+        self.notebook.add(self.summary_view, text=" 📄 Resumo Dados ")
         self.notebook.add(self.data_view, text=" 📋 Dados ")
         self.notebook.add(self.results_view, text=" 📈 Resultados ")
 
         self.config.reload_dataset()
 
     def _on_dataset_loaded(self, dataset, mode):
-        self.data_view.render(dataset, mode)
+        self.summary_view.render(dataset, mode)
+        self.data_view.render(dataset)
 
     def run_selected(self):
         dataset, split, mode, method = self.config.get_values()
