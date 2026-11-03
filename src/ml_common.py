@@ -49,6 +49,8 @@ class Dataset:
     target: np.ndarray
     load_time: float
     target_names: list[str] | None = None
+    feature_names: list[str] = field(default_factory=list)
+    target_name: str = ""
 
 
 MetricsFunction = Callable[[np.ndarray, np.ndarray], Metrics]

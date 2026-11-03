@@ -1,8 +1,11 @@
 import ast
+import math
 import queue
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+
+import numpy as np
 
 from src.enums import MethodResultField, Modes, Preprocessors
 from src.loader import load_dataset
@@ -27,6 +30,19 @@ DEFAULT_FILE = "./data/spambase.arff"
 SORT_NEWEST = "Mais novo"
 SORT_OLDEST = "Mais velho"
 SORT_OPTIONS = (SORT_NEWEST, SORT_OLDEST)
+
+PAGE_SIZE_OPTIONS = (50, 100, 200, 500)
+DEFAULT_PAGE_SIZE = 100
+
+SUMMARY_FIELDS = (
+    "Dataset",
+    "Modo",
+    "Amostras",
+    "Features",
+    "Alvo",
+    "Classes",
+    "Tempo de carga",
+)
 
 MODE_CONFIGS = {
     Modes.CLASSIFICATION: CLASSIFICATION_CONFIG,
@@ -525,11 +541,460 @@ class ResultsView(ttk.Frame):
         self.metrics.render(result)
 
 
+def format_cell(value) -> str:
+    if value is None:
+        return "-"
+
+    if isinstance(value, (float, np.floating)):
+        if np.isnan(value):
+            return "?"
+        return f"{float(value):.6g}"
+
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+
+    return str(value)
+
+
+def format_number(value: float) -> str:
+    return f"{value:.4g}"
+
+
+class SummaryBar(ttk.LabelFrame):
+    def __init__(self, parent):
+        super().__init__(parent, text=" 📄 Resumo do Dataset ", padding=10)
+        self.labels: dict[str, ttk.Label] = {}
+
+        for index, field in enumerate(SUMMARY_FIELDS):
+            row, column = divmod(index, 4)
+            ttk.Label(self, text=f"{field}:", style=STYLE_METADATA).grid(
+                row=row,
+                column=column * 2,
+                sticky=tk.W,
+                padx=(0, 5),
+                pady=2,
+            )
+            label = ttk.Label(self, text="-")
+            label.grid(
+                row=row,
+                column=column * 2 + 1,
+                sticky=tk.W,
+                padx=(0, 20),
+                pady=2,
+            )
+            self.labels[field] = label
+
+    def render(self, dataset, mode):
+        if dataset is None:
+            for label in self.labels.values():
+                label.config(text="-")
+            return
+
+        n_features = len(dataset.feature_names)
+        if not n_features and len(dataset.features):
+            n_features = len(dataset.features[0])
+
+        n_samples = len(dataset.target)
+        self.labels["Dataset"].config(text=dataset.name)
+        self.labels["Modo"].config(text=mode.value)
+        self.labels["Amostras"].config(text=f"{n_samples:,}".replace(",", "."))
+        self.labels["Features"].config(text=str(n_features))
+        self.labels["Alvo"].config(text=dataset.target_name or "—")
+        self.labels["Classes"].config(
+            text=str(len(dataset.target_names)) if dataset.target_names else "—"
+        )
+        self.labels["Tempo de carga"].config(
+            text=format_metadata(MethodResultField.load_time, dataset.load_time)
+        )
+
+
+class DatasetTable(ttk.LabelFrame):
+    def __init__(self, parent, on_page_change, on_page_size_change):
+        super().__init__(parent, text=" 🔎 Amostras ", padding=10)
+        self._on_page_change = on_page_change
+        self._on_page_size_change = on_page_size_change
+        self._page = 0
+        self._pages = 1
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        toolbar = ttk.Frame(self)
+        toolbar.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 8))
+
+        ttk.Label(toolbar, text="Linhas por página:").pack(side=tk.LEFT)
+        self.page_size_var = tk.StringVar(value=str(DEFAULT_PAGE_SIZE))
+        self.page_size_box = ttk.Combobox(
+            toolbar,
+            textvariable=self.page_size_var,
+            values=[str(size) for size in PAGE_SIZE_OPTIONS],
+            state="readonly",
+            width=5,
+        )
+        self.page_size_box.pack(side=tk.LEFT, padx=(5, 15))
+        self.page_size_box.bind("<<ComboboxSelected>>", self._handle_page_size)
+
+        self.first_button = ttk.Button(
+            toolbar,
+            text="⏮",
+            width=3,
+            command=lambda: self._request_page(0),
+        )
+        self.first_button.pack(side=tk.LEFT, padx=1)
+
+        self.prev_button = ttk.Button(
+            toolbar,
+            text="◀",
+            width=3,
+            command=lambda: self._request_page(self._page - 1),
+        )
+        self.prev_button.pack(side=tk.LEFT, padx=1)
+
+        self.next_button = ttk.Button(
+            toolbar,
+            text="▶",
+            width=3,
+            command=lambda: self._request_page(self._page + 1),
+        )
+        self.next_button.pack(side=tk.LEFT, padx=1)
+
+        self.last_button = ttk.Button(
+            toolbar,
+            text="⏭",
+            width=3,
+            command=lambda: self._request_page(self._pages - 1),
+        )
+        self.last_button.pack(side=tk.LEFT, padx=1)
+
+        self.page_var = tk.StringVar(value="Nenhum dado carregado.")
+        ttk.Label(toolbar, textvariable=self.page_var).pack(
+            side=tk.LEFT,
+            padx=(15, 0),
+        )
+
+        self.tree = ttk.Treeview(self, show="headings", selectmode="browse")
+        self.tree.grid(row=1, column=0, sticky="nsew")
+
+        self.vscroll = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
+        self.vscroll.grid(row=1, column=1, sticky=tk.NS)
+
+        self.hscroll = ttk.Scrollbar(
+            self, orient=tk.HORIZONTAL, command=self.tree.xview
+        )
+        self.hscroll.grid(row=2, column=0, sticky=tk.EW)
+
+        self.tree.configure(
+            yscrollcommand=self.vscroll.set,
+            xscrollcommand=self.hscroll.set,
+        )
+
+        self.set_columns([], "")
+        self.set_page_state(0, DEFAULT_PAGE_SIZE, 0)
+
+    def set_columns(self, feature_names, target_name):
+        self.tree.delete(*self.tree.get_children())
+
+        names = list(feature_names or [])
+        columns = ["row"]
+        columns.extend(f"c{index}" for index in range(len(names)))
+        columns.append("target")
+        self.tree.configure(columns=columns)
+
+        self._configure_column("row", "#", width=70, anchor=tk.E)
+        for index, name in enumerate(names):
+            self._configure_column(f"c{index}", name, anchor=tk.E)
+        self._configure_column("target", target_name or "Alvo", anchor=tk.W)
+
+    def _configure_column(self, column, heading, width=None, anchor=tk.W):
+        if width is None:
+            width = min(max(len(heading) * 8, 70), 200)
+        self.tree.heading(column, text=heading, anchor=tk.W)
+        self.tree.column(
+            column,
+            width=width,
+            minwidth=50,
+            stretch=False,
+            anchor=anchor,
+        )
+
+    def clear_rows(self):
+        self.tree.delete(*self.tree.get_children())
+
+    def render_rows(self, dataset, start, end):
+        self.tree.delete(*self.tree.get_children())
+
+        for index in range(start, end):
+            values = [index + 1]
+            values.extend(format_cell(value) for value in dataset.features[index])
+            values.append(format_cell(dataset.target[index]))
+            self.tree.insert("", tk.END, values=values)
+
+        self.tree.yview_moveto(0)
+        self.tree.xview_moveto(0)
+
+    def set_page_state(self, page, page_size, row_count):
+        self._page = page
+        self._pages = max(1, math.ceil(row_count / page_size)) if row_count else 1
+
+        if row_count:
+            start = page * page_size + 1
+            end = min((page + 1) * page_size, row_count)
+            label = f"Linhas {start}–{end} de {row_count:,}"
+            self.page_var.set(label.replace(",", "."))
+        else:
+            self.page_var.set("Nenhum dado carregado.")
+
+        self._set_enabled(self.first_button, page > 0)
+        self._set_enabled(self.prev_button, page > 0)
+        self._set_enabled(self.next_button, page < self._pages - 1)
+        self._set_enabled(self.last_button, page < self._pages - 1)
+
+    @staticmethod
+    def _set_enabled(button: ttk.Button, enabled: bool):
+        button.state(["!disabled"] if enabled else ["disabled"])
+
+    def _request_page(self, page):
+        if page != self._page:
+            self._on_page_change(page)
+
+    def _handle_page_size(self, _event=None):
+        self._on_page_size_change(int(self.page_size_var.get()))
+
+
+class StatsView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent, padding=10)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        headings = {
+            "column": ("Coluna", 240, tk.W),
+            "mean": ("Média", 110, tk.E),
+            "std": ("Desvio", 110, tk.E),
+            "min": ("Mín", 110, tk.E),
+            "max": ("Máx", 110, tk.E),
+            "nulls": ("Nulos", 80, tk.E),
+        }
+
+        self.tree = ttk.Treeview(
+            self,
+            columns=tuple(headings),
+            show="headings",
+            selectmode="browse",
+        )
+        for column, (heading, width, anchor) in headings.items():
+            self.tree.heading(column, text=heading, anchor=tk.W)
+            self.tree.column(
+                column,
+                width=width,
+                minwidth=60,
+                stretch=column == "column",
+                anchor=anchor,
+            )
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar = ttk.Scrollbar(
+            self, orient=tk.VERTICAL, command=self.tree.yview
+        )
+        self.scrollbar.grid(row=0, column=1, sticky=tk.NS)
+        self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+    def render(self, dataset, mode):
+        self.tree.delete(*self.tree.get_children())
+        if dataset is None or len(dataset.target) == 0:
+            return
+
+        features = np.asarray(dataset.features, dtype=float)
+        if features.ndim != 2 or features.shape[1] == 0:
+            return
+
+        names = list(dataset.feature_names)
+        if len(names) != features.shape[1]:
+            names = [f"Feature {index + 1}" for index in range(features.shape[1])]
+
+        columns = [(name, features[:, index]) for index, name in enumerate(names)]
+
+        if mode is Modes.REGRESSION:
+            target = np.asarray(dataset.target, dtype=float)
+            columns.append((dataset.target_name or "Alvo", target))
+
+        for name, values in columns:
+            valid = values[~np.isnan(values)]
+            if valid.size:
+                mean = format_number(valid.mean())
+                std = format_number(valid.std())
+                minimum = format_number(valid.min())
+                maximum = format_number(valid.max())
+            else:
+                mean = std = minimum = maximum = "—"
+
+            self.tree.insert(
+                "",
+                tk.END,
+                values=(
+                    name,
+                    mean,
+                    std,
+                    minimum,
+                    maximum,
+                    int(np.isnan(values).sum()),
+                ),
+            )
+
+
+class ClassDistributionView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent, padding=10)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        headings = {
+            "class": ("Classe", 240, tk.W),
+            "count": ("Contagem", 120, tk.E),
+            "percent": ("Percentual", 120, tk.E),
+        }
+
+        self.tree = ttk.Treeview(
+            self,
+            columns=tuple(headings),
+            show="headings",
+            selectmode="browse",
+        )
+        for column, (heading, width, anchor) in headings.items():
+            self.tree.heading(column, text=heading, anchor=tk.W)
+            self.tree.column(
+                column,
+                width=width,
+                minwidth=60,
+                stretch=column == "class",
+                anchor=anchor,
+            )
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar = ttk.Scrollbar(
+            self, orient=tk.VERTICAL, command=self.tree.yview
+        )
+        self.scrollbar.grid(row=0, column=1, sticky=tk.NS)
+        self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+    def render(self, dataset, mode):
+        self.tree.delete(*self.tree.get_children())
+        if dataset is None or mode is not Modes.CLASSIFICATION:
+            return
+
+        values = np.asarray(dataset.target)
+        unique, counts = np.unique(values, return_counts=True)
+        totals = dict(zip(unique.tolist(), counts.tolist()))
+
+        names = [name for name in dataset.target_names or [] if name in totals]
+        if not names:
+            names = sorted(totals)
+
+        total = len(values)
+        for name in names:
+            count = totals.get(name, 0)
+            percent = count / total * 100 if total else 0.0
+            self.tree.insert(
+                "",
+                tk.END,
+                values=(name, count, f"{percent:.2f}%"),
+            )
+
+
+class DataView(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.dataset = None
+        self.mode = Modes.CLASSIFICATION
+        self._page = 0
+        self._page_size = DEFAULT_PAGE_SIZE
+        self._row_count = 0
+        self._classes_visible = True
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        self.summary = SummaryBar(self)
+        self.summary.grid(row=0, column=0, sticky=tk.EW, padx=15, pady=(15, 5))
+
+        self.paned = ttk.PanedWindow(self, orient=tk.VERTICAL)
+        self.paned.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
+
+        self.table = DatasetTable(
+            self.paned,
+            on_page_change=self._on_page_change,
+            on_page_size_change=self._on_page_size_change,
+        )
+        self.paned.add(self.table, weight=3)
+
+        self.details = ttk.Notebook(self.paned)
+        self.stats = StatsView(self.details)
+        self.classes = ClassDistributionView(self.details)
+        self.details.add(self.stats, text=" 📈 Estatísticas ")
+        self.details.add(self.classes, text=" 🏷️ Classes ")
+        self.paned.add(self.details, weight=2)
+
+    def render(self, dataset, mode):
+        self.dataset = dataset
+        self.mode = mode if isinstance(mode, Modes) else Modes(mode)
+        self._row_count = len(dataset.target) if dataset is not None else 0
+        self._page = 0
+
+        self.summary.render(dataset, self.mode)
+        self.table.set_columns(
+            dataset.feature_names if dataset is not None else [],
+            dataset.target_name if dataset is not None else "",
+        )
+        self._update_classes_tab()
+        self._render_page()
+        self.stats.render(dataset, self.mode)
+        self.classes.render(dataset, self.mode)
+
+    def _update_classes_tab(self):
+        visible = self.mode is Modes.CLASSIFICATION
+        if visible and not self._classes_visible:
+            self.details.add(self.classes, text=" 🏷️ Classes ")
+            self._classes_visible = True
+        elif not visible and self._classes_visible:
+            self.details.hide(self.classes)
+            self._classes_visible = False
+
+    def _on_page_change(self, page):
+        self._page = page
+        self._render_page()
+
+    def _on_page_size_change(self, page_size):
+        self._page_size = page_size
+        self._page = 0
+        self._render_page()
+
+    def _render_page(self):
+        if self.dataset is None or self._row_count == 0:
+            self.table.clear_rows()
+            self.table.set_page_state(0, self._page_size, 0)
+            return
+
+        pages = max(1, math.ceil(self._row_count / self._page_size))
+        self._page = min(max(self._page, 0), pages - 1)
+
+        start = self._page * self._page_size
+        end = min(start + self._page_size, self._row_count)
+        self.table.render_rows(self.dataset, start, end)
+        self.table.set_page_state(self._page, self._page_size, self._row_count)
+
+
 class ConfigPanel(ttk.LabelFrame):
-    def __init__(self, parent, on_run_selected, on_run_all):
+    def __init__(
+        self,
+        parent,
+        on_run_selected,
+        on_run_all,
+        on_dataset_loaded=None,
+    ):
         super().__init__(parent, text=" ⚙️ Configurações do Modelo ", padding=20)
         self._on_run_selected = on_run_selected
         self._on_run_all = on_run_all
+        self._on_dataset_loaded = on_dataset_loaded
 
         self.path_var = tk.StringVar(value=DEFAULT_FILE)
         self.mode_var = tk.StringVar(value=Modes.CLASSIFICATION.value)
@@ -699,7 +1164,6 @@ class ConfigPanel(ttk.LabelFrame):
         ).pack(side=tk.LEFT, padx=(8, 0))
 
         self.status_frame.grid_remove()
-        self._update_dataset()
 
     def set_running(
         self,
@@ -882,6 +1346,9 @@ class ConfigPanel(ttk.LabelFrame):
             preprocessing=preprocessing,
         )
 
+    def reload_dataset(self) -> bool:
+        return self._update_dataset()
+
     def _update_dataset(self) -> bool:
         mode = Modes(self.mode_var.get())
 
@@ -893,6 +1360,10 @@ class ConfigPanel(ttk.LabelFrame):
 
         self.dataset = dataset
         self._loaded_mode = mode
+
+        if self._on_dataset_loaded is not None:
+            self._on_dataset_loaded(dataset, mode)
+
         return True
 
 
@@ -908,11 +1379,22 @@ class App:
             root,
             on_run_selected=self.run_selected,
             on_run_all=self.run_all,
+            on_dataset_loaded=self._on_dataset_loaded,
         )
-        self.config.pack(fill=tk.X, padx=20, pady=20)
+        self.config.pack(fill=tk.X, padx=20, pady=(20, 10))
 
-        self.results_view = ResultsView(root)
-        self.results_view.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        self.notebook = ttk.Notebook(root)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+
+        self.data_view = DataView(self.notebook)
+        self.results_view = ResultsView(self.notebook)
+        self.notebook.add(self.data_view, text=" 📋 Dados ")
+        self.notebook.add(self.results_view, text=" 📈 Resultados ")
+
+        self.config.reload_dataset()
+
+    def _on_dataset_loaded(self, dataset, mode):
+        self.data_view.render(dataset, mode)
 
     def run_selected(self):
         dataset, split, mode, method = self.config.get_values()
@@ -1037,8 +1519,8 @@ class App:
 def main():
     root = tk.Tk()
     root.title("📊 Classificação e Regressão")
-    root.geometry("860x760")
-    root.minsize(700, 620)
+    root.geometry("1000x800")
+    root.minsize(820, 660)
 
     App(root)
 

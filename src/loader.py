@@ -45,6 +45,8 @@ def load_dataset(filename: str, mode: Modes) -> Dataset:
         target=target,
         target_names=target_names,
         load_time=load_time,
+        feature_names=[str(column) for column in frame.columns[:-1]],
+        target_name=str(frame.columns[-1]),
     )
 
 
