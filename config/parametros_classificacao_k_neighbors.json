@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "K-Neighbors",
+  "preprocessing": "StandardScaler",
+  "params": {}
+}

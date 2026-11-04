@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "SVC",
+  "preprocessing": "StandardScaler",
+  "params": {}
+}

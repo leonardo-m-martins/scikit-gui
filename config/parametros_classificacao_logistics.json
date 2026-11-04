@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Logistics",
+  "preprocessing": "StandardScaler",
+  "params": {
+    "random_state": 42,
+    "max_iter": 10000
+  }
+}

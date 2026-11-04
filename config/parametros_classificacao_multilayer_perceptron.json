@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Multilayer Perceptron",
+  "preprocessing": "StandardScaler",
+  "params": {
+    "hidden_layer_sizes": [
+      125
+    ],
+    "activation": "logistic",
+    "solver": "adam",
+    "alpha": 0.01,
+    "learning_rate": "adaptive",
+    "max_iter": 10000
+  }
+}

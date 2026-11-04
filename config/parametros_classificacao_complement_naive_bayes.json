@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Complement Naive Bayes",
+  "preprocessing": "Nenhum",
+  "params": {}
+}

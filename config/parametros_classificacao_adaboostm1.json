@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "AdaBoostM1",
+  "preprocessing": "Nenhum",
+  "params": {
+    "random_state": 42
+  }
+}

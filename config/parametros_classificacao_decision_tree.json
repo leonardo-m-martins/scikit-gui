@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Decision Tree",
+  "preprocessing": "Nenhum",
+  "params": {
+    "criterion": "entropy",
+    "random_state": 42
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Regressão",
+  "method": "K-Neighbors",
+  "preprocessing": "Nenhum",
+  "params": {}
+}

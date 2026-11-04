@@ -14,10 +14,13 @@ from src.ml_classification import CLASSIFICATION_CONFIG
 from src.ml_common import ModelSpec, run_all_methods, run_method
 from src.ml_regression import REGRESSION_CONFIG
 from src.parameters import (
+    CONFIG_DIR,
     ParameterFileError,
     build_payload,
     default_filename,
+    load_configs,
     parse_payload,
+    write_payload,
 )
 from src.shared import (
     ClassificationMetrics,
@@ -352,18 +355,6 @@ class ParameterDialog(tk.Toplevel):
         if params is None:
             return
 
-        filename = filedialog.asksaveasfilename(
-            parent=self,
-            defaultextension=".json",
-            initialfile=default_filename(self.mode, self.method),
-            filetypes=[
-                ("Arquivo JSON", "*.json"),
-                ("Todos os arquivos", "*.*"),
-            ],
-        )
-        if not filename:
-            return
-
         payload = build_payload(
             self.mode,
             self.method,
@@ -373,10 +364,10 @@ class ParameterDialog(tk.Toplevel):
                 preprocessing=self.pending_preprocessing,
             ),
         )
+        path = CONFIG_DIR / default_filename(self.mode, self.method)
+
         try:
-            with open(filename, "w", encoding="utf-8") as file:
-                json.dump(payload, file, ensure_ascii=False, indent=2)
-                file.write("\n")
+            write_payload(path, payload)
         except (OSError, TypeError, ValueError) as exc:
             messagebox.showerror(
                 "Exportar parâmetros",
@@ -387,7 +378,7 @@ class ParameterDialog(tk.Toplevel):
 
         messagebox.showinfo(
             "Exportar parâmetros",
-            f"Parâmetros de {self.method.value} exportados para:\n{filename}",
+            f"Parâmetros de {self.method.value} salvos em:\n{path}",
             parent=self,
         )
 
@@ -1548,6 +1539,7 @@ class App:
         self.results: list[MethodResult] = []
         self._busy = False
         self._worker_queue = queue.Queue()
+        self.config_report = load_configs(MODE_CONFIGS)
         configure_styles(root)
 
         self.config = ConfigPanel(
@@ -1569,6 +1561,23 @@ class App:
         self.notebook.add(self.results_view, text=" 📈 Resultados ")
 
         self.config.reload_dataset()
+
+        if self.config_report.warnings:
+            self._show_config_warnings()
+
+    def _show_config_warnings(self):
+        warnings = self.config_report.warnings
+        shown = warnings[:10]
+
+        if len(warnings) > len(shown):
+            shown.append(f"… e mais {len(warnings) - len(shown)} arquivo(s).")
+
+        messagebox.showwarning(
+            "Configurações",
+            "Alguns arquivos de configuração foram ignorados:\n\n"
+            + "\n".join(shown),
+            parent=self.root,
+        )
 
     def _on_dataset_loaded(self, dataset, mode):
         self.summary_view.render(dataset, mode)

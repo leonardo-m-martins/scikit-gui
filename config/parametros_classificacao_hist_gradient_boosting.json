@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Hist Gradient Boosting",
+  "preprocessing": "Nenhum",
+  "params": {}
+}

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Gaussian Naive Bayes",
+  "preprocessing": "Nenhum",
+  "params": {}
+}
