@@ -3,5 +3,8 @@
   "mode": "Classificação",
   "method": "Gaussian Naive Bayes",
   "preprocessing": "Nenhum",
-  "params": {}
+  "params": {
+    "priors": null,
+    "var_smoothing": 1e-09
+  }
 }

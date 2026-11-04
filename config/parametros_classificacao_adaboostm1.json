@@ -4,6 +4,9 @@
   "method": "AdaBoostM1",
   "preprocessing": "Nenhum",
   "params": {
+    "estimator": null,
+    "learning_rate": 1.0,
+    "n_estimators": 50,
     "random_state": 42
   }
 }
