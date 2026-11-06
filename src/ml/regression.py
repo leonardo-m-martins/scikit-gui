@@ -11,7 +11,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 
 from src.enums import Methods, Preprocessors
-from src.ml_common import ModeConfig, ModelSpec
+from src.ml.common import ModeConfig, ModelSpec
 from src.shared import RegressionMetrics
 
 _MODEL_SPECS: dict[Methods, ModelSpec] = {

@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.io import arff
 
 from src.enums import Modes
-from src.ml_common import Dataset
+from src.ml.common import Dataset
 
 
 # arff.loadarff() carrega strings em bytes, esta função serve para transformá-las em strings

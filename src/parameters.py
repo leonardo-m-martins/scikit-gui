@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from src.enums import Methods, Modes, Preprocessors
-from src.ml_common import ModeConfig, ModelSpec
+from src.ml.common import ModeConfig, ModelSpec
 
 SCHEMA_VERSION = 1
 
@@ -64,15 +64,12 @@ def parse_payload(
     try:
         method = Methods(method_name)
     except ValueError as exc:
-        raise ParameterFileError(
-            f"Método desconhecido: {method_name!r}."
-        ) from exc
+        raise ParameterFileError(f"Método desconhecido: {method_name!r}.") from exc
 
     spec = specs.get(method)
     if spec is None:
         raise ParameterFileError(
-            f"O método {method_name!r} não está disponível "
-            f"no modo {mode.value}."
+            f"O método {method_name!r} não está disponível " f"no modo {mode.value}."
         )
 
     params = payload.get("params", {})
@@ -91,7 +88,7 @@ def parse_payload(
 
     try:
         spec.model_type(**params)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise ParameterFileError(
             f"Parâmetros inválidos para {method_name}: {exc}"
         ) from exc
@@ -170,9 +167,7 @@ def load_configs(
             payload = read_payload(path)
 
             if not isinstance(payload, dict):
-                raise ParameterFileError(
-                    "O arquivo deve conter um objeto JSON."
-                )
+                raise ParameterFileError("O arquivo deve conter um objeto JSON.")
 
             mode = Modes(payload.get("mode"))
             specs = configs[mode].specs

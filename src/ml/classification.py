@@ -13,7 +13,7 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 from src.enums import Methods, Preprocessors
-from src.ml_common import ModeConfig, ModelSpec
+from src.ml.common import ModeConfig, ModelSpec
 from src.shared import ClassificationMetrics
 
 _MODEL_SPECS: dict[Methods, ModelSpec] = {
