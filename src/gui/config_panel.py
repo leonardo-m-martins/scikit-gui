@@ -33,8 +33,7 @@ class ConfigPanel(ttk.LabelFrame):
         self._loaded_mode = Modes.CLASSIFICATION
         self._running = False
         self._progress_total = 0
-        self._progress_index = 0
-        self._progress_job = None
+        self._progress_completed = 0
         self._current_method = ""
         self.columnconfigure(1, weight=1)
 
@@ -204,15 +203,13 @@ class ConfigPanel(ttk.LabelFrame):
         if running:
             self._set_controls_enabled(False)
             self._progress_total = total
-            self._progress_index = 1
+            self._progress_completed = 0
             self._current_method = method_name
             self.status_frame.grid()
             self.spinner.start(12)
             self._update_progress_label()
-            self._schedule_progress_tick()
             return
 
-        self._cancel_progress_tick()
         self.spinner.stop()
         self.status_frame.grid_remove()
         self.current_method_var.set("")
@@ -227,13 +224,11 @@ class ConfigPanel(ttk.LabelFrame):
         if not self._running:
             return
 
-        self._progress_total = max(self._progress_total - 1, 1)
-        self._progress_index = 1
-        self._cancel_progress_tick()
+        self._progress_completed = min(
+            self._progress_completed + 1,
+            self._progress_total,
+        )
         self._update_progress_label()
-
-        if self._progress_total > 1:
-            self._schedule_progress_tick()
 
     def _set_controls_enabled(self, enabled: bool):
         state = tk.NORMAL if enabled else tk.DISABLED
@@ -261,36 +256,7 @@ class ConfigPanel(ttk.LabelFrame):
             self.progress_var.set("")
             return
 
-        self.progress_var.set(f"{self._progress_index}/{self._progress_total}")
-
-    def _schedule_progress_tick(self):
-        if self._progress_job is not None:
-            return
-
-        if not self._running or self._progress_total <= 1:
-            return
-
-        self._progress_job = self.after(2000, self._tick_progress)
-
-    def _tick_progress(self):
-        self._progress_job = None
-
-        if not self._running or self._progress_total <= 1:
-            return
-
-        self._progress_index = min(
-            self._progress_index + 1,
-            self._progress_total,
-        )
-        self._update_progress_label()
-
-        if self._progress_index < self._progress_total:
-            self._schedule_progress_tick()
-
-    def _cancel_progress_tick(self):
-        if self._progress_job is not None:
-            self.after_cancel(self._progress_job)
-            self._progress_job = None
+        self.progress_var.set(f"{self._progress_completed}/{self._progress_total}")
 
     def get_values(self):
         return (
