@@ -6,6 +6,7 @@ class Methods(str, Enum):
     MULTI_NAIVE_BAYES = "Multinomial Naive Bayes"
     COMPLEMENT_NAIVE_BAYES = "Complement Naive Bayes"
     LOGISTICS = "Logistics"
+    LINEAR = "Linear Regression"
     MULTILAYER_PERCEPTRON = "Multilayer Perceptron"
     SVC = "SVC"
     K_NEIGHBORS = "K-Neighbors"
@@ -14,7 +15,11 @@ class Methods(str, Enum):
     HIST_GRADIENT_BOOST = "Hist Gradient Boosting"
     DECISION_TABLE = "Decision table"
     DECISION_TREE = "Decision Tree"
+    EXTRA_TREES = "Extra Trees"
     RANDOM_FOREST = "Random Forest"
+    RIDGE = "Ridge"
+    HUBER = "Huber"
+    BAYESIAN_RIDGE = "Bayesian Ridge"
 
     @staticmethod
     def values():

@@ -6,9 +6,10 @@ from sklearn.ensemble import (
     HistGradientBoostingRegressor,
     RandomForestRegressor,
 )
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import BayesianRidge, HuberRegressor, LinearRegression, Ridge
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
+from sklearn.tree import DecisionTreeRegressor, ExtraTreeRegressor
 
 from src.enums import Methods, Preprocessors
 from src.ml.common import ModeConfig, ModelSpec
@@ -43,8 +44,13 @@ _MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.ADABOOSTM1: ModelSpec(AdaBoostRegressor),
     Methods.GRADIENT_BOOSTING: ModelSpec(GradientBoostingRegressor),
     Methods.HIST_GRADIENT_BOOST: ModelSpec(HistGradientBoostingRegressor),
-    Methods.LOGISTICS: ModelSpec(LogisticRegression),
+    Methods.LINEAR: ModelSpec(LinearRegression),
     Methods.K_NEIGHBORS: ModelSpec(KNeighborsRegressor),
+    Methods.DECISION_TREE: ModelSpec(DecisionTreeRegressor),
+    Methods.EXTRA_TREES: ModelSpec(ExtraTreeRegressor),
+    Methods.HUBER: ModelSpec(HuberRegressor),
+    Methods.RIDGE: ModelSpec(Ridge),
+    Methods.BAYESIAN_RIDGE: ModelSpec(BayesianRidge),
 }
 
 

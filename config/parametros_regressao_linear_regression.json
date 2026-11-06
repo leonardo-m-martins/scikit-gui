@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "mode": "Regressão",
+  "method": "Linear Regression",
+  "preprocessing": "StandardScaler",
+  "params": {
+    "copy_X": true,
+    "fit_intercept": true,
+    "n_jobs": null,
+    "positive": false,
+    "tol": 1e-06
+  }
+}
