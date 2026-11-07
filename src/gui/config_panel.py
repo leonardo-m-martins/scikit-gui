@@ -8,7 +8,8 @@ from src.gui.model_configs import MODE_CONFIGS, method_values
 from src.gui.parameter_dialog import ParameterDialog
 from src.gui.widgets import ModeSlider
 from src.loader import load_dataset
-from src.parameters import config_path, load_method_spec, save_method_spec
+from src.ml.common import ModelSpec
+from src.parameters import config_path, load_method_spec
 
 DEFAULT_FILE = "./data/spambase.arff"
 
@@ -32,6 +33,8 @@ class ConfigPanel(ttk.LabelFrame):
         self.preprocessing_var = tk.StringVar(value=Preprocessors.NONE.value)
         self.split_var = tk.IntVar(value=20)
         self.default_var = tk.BooleanVar(value=False)
+        self.session_status_var = tk.StringVar()
+        self._session_specs: dict[tuple[Modes, Methods], ModelSpec] = {}
         self.dataset = None
         self._loaded_mode = Modes.CLASSIFICATION
         self._running = False
@@ -138,14 +141,24 @@ class ConfigPanel(ttk.LabelFrame):
             pady=10,
         )
 
+        config_frame = ttk.Frame(self)
+        config_frame.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+
         self.mode_slider = ModeSlider(
-            self,
+            config_frame,
             "Padrão",
             "CONFIG.json",
             variable=self.default_var,
             command=self._on_config_mode_changed,
         )
-        self.mode_slider.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+        self.mode_slider.pack(side=tk.LEFT)
+
+        self.session_status = ttk.Label(
+            config_frame,
+            textvariable=self.session_status_var,
+            foreground="#b45309",
+        )
+        self.session_status.pack(side=tk.LEFT, padx=(12, 0))
 
         action_frame = ttk.Frame(self)
         action_frame.grid(row=6, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
@@ -296,12 +309,20 @@ class ConfigPanel(ttk.LabelFrame):
             return
 
         spec = base_spec
-        if not self.default_var.get() and config_path(mode, method_enum).is_file():
-            try:
-                spec = load_method_spec(mode, method_enum, MODE_CONFIGS[mode].specs)
-            except (OSError, ValueError) as exc:
-                messagebox.showerror("Parâmetros", str(exc))
-                return
+        if not self.default_var.get():
+            override = self._session_specs.get((mode, method_enum))
+            if override is not None:
+                spec = override
+            elif config_path(mode, method_enum).is_file():
+                try:
+                    spec = load_method_spec(
+                        mode,
+                        method_enum,
+                        MODE_CONFIGS[mode].specs,
+                    )
+                except (OSError, ValueError) as exc:
+                    messagebox.showerror("Parâmetros", str(exc))
+                    return
 
         dialog = ParameterDialog(
             self,
@@ -313,13 +334,11 @@ class ConfigPanel(ttk.LabelFrame):
         self.wait_window(dialog)
 
         if dialog.result is not None:
-            try:
-                save_method_spec(mode, method_enum, dialog.result)
-            except OSError as exc:
-                messagebox.showerror("Parâmetros", str(exc))
-                return
-
+            self._session_specs[(mode, method_enum)] = dialog.result
             self.mode_slider.set(False)
+            self._update_preprocessing_display()
+        elif dialog.exported_spec is not None:
+            self._session_specs.pop((mode, method_enum), None)
             self._update_preprocessing_display()
 
     def _browse(self):
@@ -352,6 +371,19 @@ class ConfigPanel(ttk.LabelFrame):
     def _on_config_mode_changed(self):
         self._update_preprocessing_display()
 
+    def resolve_spec(self, mode: Modes, method: Methods) -> ModelSpec:
+        override = self._session_specs.get((mode, method))
+        if override is not None:
+            return override
+
+        return load_method_spec(mode, method, MODE_CONFIGS[mode].specs)
+
+    def resolve_specs(self, mode: Modes) -> dict[Methods, ModelSpec]:
+        return {
+            method: self.resolve_spec(mode, method)
+            for method in MODE_CONFIGS[mode].specs
+        }
+
     def _effective_spec(self):
         method = self.method_var.get()
         if not method:
@@ -367,7 +399,7 @@ class ConfigPanel(ttk.LabelFrame):
             return base_spec
 
         try:
-            return load_method_spec(mode, method_enum, MODE_CONFIGS[mode].specs)
+            return self.resolve_spec(mode, method_enum)
         except (OSError, ValueError):
             return base_spec
 
@@ -376,11 +408,25 @@ class ConfigPanel(ttk.LabelFrame):
         if spec is None:
             self.preprocessing_var.set(Preprocessors.NONE.value)
             self.preprocessing_box.configure(state=tk.DISABLED)
+            self._update_session_status()
             return
 
         self.preprocessing_var.set(spec.preprocessing.value)
         state = tk.DISABLED if self.default_var.get() else "readonly"
         self.preprocessing_box.configure(state=state)
+        self._update_session_status()
+
+    def _update_session_status(self):
+        method = self.method_var.get()
+        if not method or self.default_var.get():
+            self.session_status_var.set("")
+            return
+
+        key = (Modes(self.mode_var.get()), Methods(method))
+        if key in self._session_specs:
+            self.session_status_var.set("⚠ Alterações não salvas")
+        else:
+            self.session_status_var.set("")
 
     def _on_preprocessing_changed(self, _event=None):
         method = self.method_var.get()
@@ -389,20 +435,15 @@ class ConfigPanel(ttk.LabelFrame):
 
         mode = Modes(self.mode_var.get())
         method_enum = Methods(method)
-        base_specs = MODE_CONFIGS[mode].specs
-        try:
-            spec = load_method_spec(mode, method_enum, base_specs)
-        except (OSError, ValueError):
-            spec = base_specs[method_enum]
+        spec = self._effective_spec()
+        if spec is None:
+            return
 
         preprocessing = Preprocessors(self.preprocessing_var.get())
-        spec = spec.update_params({}, preprocessing=preprocessing)
-
-        try:
-            save_method_spec(mode, method_enum, spec)
-        except OSError as exc:
-            messagebox.showerror("Pré-processamento", str(exc))
-
+        self._session_specs[(mode, method_enum)] = spec.update_params(
+            {},
+            preprocessing=preprocessing,
+        )
         self._update_preprocessing_display()
 
     def reload_dataset(self) -> bool:

@@ -71,6 +71,7 @@ class ParameterDialog(tk.Toplevel):
         self.method = method
         self.pending_preprocessing = spec.preprocessing
         self.result: ModelSpec | None = None
+        self.exported_spec: ModelSpec | None = None
         self.vars: dict[str, tk.StringVar] = {}
         self.combobox_keys: set[str] = set()
 
@@ -206,15 +207,12 @@ class ParameterDialog(tk.Toplevel):
         if params is None:
             return
 
-        payload = build_payload(
-            self.mode,
-            self.method,
-            ModelSpec(
-                model_type=self.spec.model_type,
-                params=params,
-                preprocessing=self.pending_preprocessing,
-            ),
+        spec = ModelSpec(
+            model_type=self.spec.model_type,
+            params=params,
+            preprocessing=self.pending_preprocessing,
         )
+        payload = build_payload(self.mode, self.method, spec)
         path = config_path(self.mode, self.method)
 
         try:
@@ -227,9 +225,10 @@ class ParameterDialog(tk.Toplevel):
             )
             return
 
+        self.exported_spec = spec
         messagebox.showinfo(
             "Exportar parâmetros",
-            f"Parâmetros de {self.method.value} salvos em:\n{path}",
+            f"Configuração de {self.method.value} salva em:\n{path}",
             parent=self,
         )
 

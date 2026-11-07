@@ -6,26 +6,21 @@ Como rodar:
     pip install -r requirements.txt
 - Rodar main.py
     python main.py
-- A janela principal abre maximizada, ocupando a área disponível da tela.
 
-Visão geral da interface:
-- O botão "Procurar" corresponde ao botão "Abrir arquivo" da especificação.
-  Ele permite selecionar um dataset ARFF; o conteúdo é exibido nas abas
-  "Resumo Dados" e "Dados".
-- O seletor "Modo" corresponde ao seletor "Tipo de tarefa" da especificação.
-  As opções são "Classificação" e "Regressão". Ao trocar o modo, a lista de
-  métodos é atualizada automaticamente.
+Interface:
+- O botão "Procurar" corresponde ao botão "Abrir arquivo", abre ARFF apenas.
+- O seletor "Modo" corresponde ao seletor "Tipo de tarefa".
 - O seletor "Método" exibe os métodos disponíveis para o modo escolhido.
+  - Contém um botão "Parâmetros" que permite alterar os parâmetros manualmente.
 - O slider "Padrão" / "CONFIG.json" corresponde ao seletor "Padrão" e
   inicia no modo "CONFIG.json":
-    - "Padrão": executa o método com os parâmetros definidos no código.
-    - "CONFIG.json": executa o método com os parâmetros do arquivo
-      CONFIG.json correspondente ao modo e ao método selecionados.
+    - "Padrão": executa o método com os parâmetros padrão do scikit.
+    - "CONFIG.json": executa o método com os parâmetros do arquivo.
 - O botão "Executar Selecionado" corresponde ao botão "Executar" da
   especificação. Ele executa o método escolhido e exibe as métricas na aba
   "Resultados".
 - O botão "Executar Todos" é uma funcionalidade extra que executa todos os
-  métodos do modo selecionado.
+  métodos do modo selecionado para o dataset selecionado.
 
 Abas:
 - "Resumo Dados": resumo do dataset carregado.
@@ -40,16 +35,20 @@ Configurações:
 - Cada método possui um arquivo CONFIG.json próprio:
     config/classificacao/<metodo>/CONFIG.json
     config/regressao/<metodo>/CONFIG.json
-  O CONFIG.json é o arquivo de configuração do método; ele equivale ao
-  CONFIG.TXT solicitado na especificação.
+  O CONFIG.json é o arquivo de configuração do método.
 - O slider "Padrão" / "CONFIG.json" escolhe a origem dos parâmetros. O valor
   inicial é "CONFIG.json".
-- O botão "Parâmetros" abre o editor do método selecionado. Ao aplicar as
-  alterações, o CONFIG.json do método é gravado e o slider passa para o modo
-  "CONFIG.json".
+- O botão "Parâmetros" abre o editor do método selecionado:
+    - "Aplicar": aplica as alterações apenas à sessão atual, sem gravar o
+      CONFIG.json. Ao aplicar, o slider passa para o modo "CONFIG.json".
+    - "Exportar": grava as alterações no CONFIG.json do método.
+    - "Importar": carrega um arquivo JSON para o editor.
+- O aviso "Alterações não salvas" aparece quando há uma configuração
+  aplicada apenas em memória. Ela é usada nas execuções enquanto o aplicativo
+  estiver aberto, mas é perdida ao fechar sem exportar.
 - A caixa "Pré-processamento" mostra o pré-processamento do modo ativo. Ela
-  só pode ser alterada no modo "CONFIG.json"; nesse caso, a alteração é
-  gravada no CONFIG.json do método.
+  só pode ser alterada no modo "CONFIG.json"; a alteração fica na sessão
+  atual e só é gravada no arquivo ao usar o botão "Exportar".
 - No modo "Executar Todos" com a opção "CONFIG.json", todos os arquivos do
   modo são validados antes da execução. Se algum estiver ausente ou inválido,
   a execução não começa e uma mensagem de erro é exibida.
@@ -72,14 +71,14 @@ Campos:
 - method: nome do método, igual ao exibido na interface.
 - preprocessing: "Nenhum", "StandardScaler", "MinMaxScaler" ou
   "RobustScaler".
-- params: hiperparâmetros do modelo. Chaves ausentes usam os valores padrão
-  do scikit-learn.
+- params: hiperparâmetros do modelo.
+
+OBS: não é recomendado utilizar o botão "Executar Todos" no slider "Padrão",
+já que alguns métodos podem levar vários minutos em OnlineNewsPopularity.arff.
 
 Datasets:
 - data/spambase.arff: dataset de classificação.
-- data/OnlineNewsPopularity.arff: dataset de regressão; o alvo é "shares"
-  (popularidade em redes sociais).
-- Os dois arquivos estão no formato ARFF, utilizado pelo WEKA.
+- data/OnlineNewsPopularity.arff: dataset de regressão.
 
 Arquivos:
 scikit-weka/

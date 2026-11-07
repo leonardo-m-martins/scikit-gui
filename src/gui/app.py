@@ -13,7 +13,6 @@ from src.gui.model_configs import MODE_CONFIGS
 from src.gui.results import ResultsView
 from src.gui.styles import configure_styles
 from src.ml.common import ModeConfig, run_all_methods, run_method
-from src.parameters import load_method_spec, load_mode_specs
 from src.shared import MethodResult
 
 
@@ -59,11 +58,7 @@ class App:
 
         if not use_default:
             try:
-                spec = load_method_spec(
-                    mode,
-                    Methods(method),
-                    mode_config.specs,
-                )
+                spec = self.config.resolve_spec(mode, Methods(method))
             except (OSError, ValueError) as exc:
                 messagebox.showerror("Configuração", str(exc))
                 return
@@ -95,7 +90,7 @@ class App:
 
         if not use_default:
             try:
-                specs = load_mode_specs(mode, mode_config.specs)
+                specs = self.config.resolve_specs(mode)
             except (OSError, ValueError) as exc:
                 messagebox.showerror("Configuração", str(exc))
                 return
