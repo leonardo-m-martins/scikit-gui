@@ -96,7 +96,7 @@ class ModeSlider(ttk.Frame):
         command=None,
     ):
         super().__init__(parent)
-        self.variable = variable if variable is not None else tk.BooleanVar(True)
+        self.variable = variable if variable is not None else tk.BooleanVar(False)
         self._command = command
         self._updating = False
 

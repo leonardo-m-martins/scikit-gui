@@ -19,42 +19,16 @@ from src.shared import ClassificationMetrics
 _MODEL_SPECS: dict[Methods, ModelSpec] = {
     Methods.MULTILAYER_PERCEPTRON: ModelSpec(
         MLPClassifier,
-        {
-            "hidden_layer_sizes": (125,),
-            "activation": "logistic",
-            "solver": "adam",
-            "alpha": 0.01,
-            "learning_rate": "adaptive",
-            "max_iter": 10000,
-        },
         preprocessing=Preprocessors.STANDARD_SCALER,
     ),
-    Methods.RANDOM_FOREST: ModelSpec(
-        RandomForestClassifier,
-        {
-            "n_estimators": 100,
-            "criterion": "gini",
-            "max_depth": None,
-            "min_samples_split": 2,
-            "min_samples_leaf": 1,
-            "random_state": 42,
-            "n_jobs": -1,
-        },
-    ),
-    Methods.DECISION_TREE: ModelSpec(
-        DecisionTreeClassifier,
-        {"criterion": "entropy", "random_state": 42},
-    ),
-    Methods.ADABOOSTM1: ModelSpec(
-        AdaBoostClassifier,
-        {"random_state": 42},
-    ),
+    Methods.RANDOM_FOREST: ModelSpec(RandomForestClassifier),
+    Methods.DECISION_TREE: ModelSpec(DecisionTreeClassifier),
+    Methods.ADABOOSTM1: ModelSpec(AdaBoostClassifier),
     Methods.GAUSSIAN_NAIVE_BAYES: ModelSpec(GaussianNB),
     Methods.MULTI_NAIVE_BAYES: ModelSpec(MultinomialNB),
     Methods.COMPLEMENT_NAIVE_BAYES: ModelSpec(ComplementNB),
     Methods.LOGISTICS: ModelSpec(
         LogisticRegression,
-        {"random_state": 42, "max_iter": 10000},
         preprocessing=Preprocessors.STANDARD_SCALER,
     ),
     Methods.SVC: ModelSpec(SVC, preprocessing=Preprocessors.STANDARD_SCALER),

@@ -31,7 +31,7 @@ class ConfigPanel(ttk.LabelFrame):
         self.method_var = tk.StringVar()
         self.preprocessing_var = tk.StringVar(value=Preprocessors.NONE.value)
         self.split_var = tk.IntVar(value=20)
-        self.default_var = tk.BooleanVar(value=True)
+        self.default_var = tk.BooleanVar(value=False)
         self.dataset = None
         self._loaded_mode = Modes.CLASSIFICATION
         self._running = False

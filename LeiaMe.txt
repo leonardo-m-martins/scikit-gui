@@ -6,6 +6,7 @@ Como rodar:
     pip install -r requirements.txt
 - Rodar main.py
     python main.py
+- A janela principal abre maximizada, ocupando a área disponível da tela.
 
 Visão geral da interface:
 - O botão "Procurar" corresponde ao botão "Abrir arquivo" da especificação.
@@ -15,7 +16,8 @@ Visão geral da interface:
   As opções são "Classificação" e "Regressão". Ao trocar o modo, a lista de
   métodos é atualizada automaticamente.
 - O seletor "Método" exibe os métodos disponíveis para o modo escolhido.
-- O slider "Padrão" / "CONFIG.json" corresponde ao seletor "Padrão":
+- O slider "Padrão" / "CONFIG.json" corresponde ao seletor "Padrão" e
+  inicia no modo "CONFIG.json":
     - "Padrão": executa o método com os parâmetros definidos no código.
     - "CONFIG.json": executa o método com os parâmetros do arquivo
       CONFIG.json correspondente ao modo e ao método selecionados.
@@ -40,7 +42,8 @@ Configurações:
     config/regressao/<metodo>/CONFIG.json
   O CONFIG.json é o arquivo de configuração do método; ele equivale ao
   CONFIG.TXT solicitado na especificação.
-- O slider "Padrão" / "CONFIG.json" escolhe a origem dos parâmetros.
+- O slider "Padrão" / "CONFIG.json" escolhe a origem dos parâmetros. O valor
+  inicial é "CONFIG.json".
 - O botão "Parâmetros" abre o editor do método selecionado. Ao aplicar as
   alterações, o CONFIG.json do método é gravado e o slider passa para o modo
   "CONFIG.json".

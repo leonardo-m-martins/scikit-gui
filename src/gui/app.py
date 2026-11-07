@@ -200,12 +200,39 @@ class App:
             self.notebook.select(self.results_view)
 
 
+def maximize_window(root):
+    root.update_idletasks()
+    system = root.tk.call("tk", "windowingsystem")
+
+    try:
+        if system == "x11":
+            root.attributes("-zoomed", True)
+        else:
+            root.state("zoomed")
+    except tk.TclError:
+        try:
+            if system == "x11":
+                root.state("zoomed")
+            else:
+                root.attributes("-zoomed", True)
+        except tk.TclError:
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            root.geometry(f"{screen_width}x{screen_height}+0+0")
+
+
 def main():
     root = tk.Tk()
     root.title("📊 Classificação e Regressão")
-    root.geometry("1000x800")
-    root.minsize(820, 660)
+
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    width = min(1000, max(640, screen_width - 80))
+    height = min(800, max(480, screen_height - 80))
+    root.geometry(f"{width}x{height}+0+0")
+    root.minsize(min(760, width), min(560, height))
 
     App(root)
+    maximize_window(root)
 
     root.mainloop()
