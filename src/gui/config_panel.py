@@ -6,7 +6,9 @@ from tkinter import filedialog, messagebox, ttk
 from src.enums import Methods, Modes, Preprocessors
 from src.gui.model_configs import MODE_CONFIGS, method_values
 from src.gui.parameter_dialog import ParameterDialog
+from src.gui.widgets import ModeSlider
 from src.loader import load_dataset
+from src.parameters import config_path, load_method_spec, save_method_spec
 
 DEFAULT_FILE = "./data/spambase.arff"
 
@@ -29,6 +31,7 @@ class ConfigPanel(ttk.LabelFrame):
         self.method_var = tk.StringVar()
         self.preprocessing_var = tk.StringVar(value=Preprocessors.NONE.value)
         self.split_var = tk.IntVar(value=20)
+        self.default_var = tk.BooleanVar(value=True)
         self.dataset = None
         self._loaded_mode = Modes.CLASSIFICATION
         self._running = False
@@ -135,8 +138,17 @@ class ConfigPanel(ttk.LabelFrame):
             pady=10,
         )
 
+        self.mode_slider = ModeSlider(
+            self,
+            "Padrão",
+            "CONFIG.json",
+            variable=self.default_var,
+            command=self._on_config_mode_changed,
+        )
+        self.mode_slider.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+
         action_frame = ttk.Frame(self)
-        action_frame.grid(row=5, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
+        action_frame.grid(row=6, column=0, columnspan=3, sticky=tk.EW, pady=(25, 0))
 
         self.run_selected_button = ttk.Button(
             action_frame,
@@ -164,7 +176,7 @@ class ConfigPanel(ttk.LabelFrame):
 
         self.status_frame = ttk.Frame(self)
         self.status_frame.grid(
-            row=6,
+            row=7,
             column=0,
             columnspan=3,
             sticky=tk.W,
@@ -239,13 +251,16 @@ class ConfigPanel(ttk.LabelFrame):
         self.run_selected_button.configure(state=state)
         self.run_all_button.configure(state=state)
         self.params_button.configure(state=state)
+        self.mode_slider.set_enabled(enabled)
 
         combo_state = "readonly" if enabled else tk.DISABLED
         self.mode_box.configure(state=combo_state)
         self.method_box.configure(state=combo_state)
 
         preprocessing_state = (
-            "readonly" if enabled and self.method_var.get() else tk.DISABLED
+            "readonly"
+            if enabled and not self.default_var.get() and self.method_var.get()
+            else tk.DISABLED
         )
         self.preprocessing_box.configure(state=preprocessing_state)
 
@@ -264,6 +279,7 @@ class ConfigPanel(ttk.LabelFrame):
             int(self.split_var.get()),
             Modes(self.mode_var.get()),
             self.method_var.get(),
+            self.default_var.get(),
         )
 
     def _open_params(self):
@@ -273,26 +289,46 @@ class ConfigPanel(ttk.LabelFrame):
             return
 
         mode = Modes(self.mode_var.get())
-        spec = MODE_CONFIGS[mode].specs.get(method)
-        if spec is None:
+        method_enum = Methods(method)
+        base_spec = MODE_CONFIGS[mode].specs.get(method_enum)
+        if base_spec is None:
             messagebox.showwarning("Parameters", "Method is not supported.")
             return
+
+        spec = base_spec
+        if not self.default_var.get() and config_path(mode, method_enum).is_file():
+            try:
+                spec = load_method_spec(mode, method_enum, MODE_CONFIGS[mode].specs)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Parâmetros", str(exc))
+                return
 
         dialog = ParameterDialog(
             self,
             spec,
             mode=mode,
-            method=Methods(method),
+            method=method_enum,
             title=f"Parâmetros — {method}",
         )
         self.wait_window(dialog)
 
         if dialog.result is not None:
-            MODE_CONFIGS[mode].specs[method] = dialog.result
-            self._on_method_changed()
+            try:
+                save_method_spec(mode, method_enum, dialog.result)
+            except OSError as exc:
+                messagebox.showerror("Parâmetros", str(exc))
+                return
+
+            self.mode_slider.set(False)
+            self._update_preprocessing_display()
 
     def _browse(self):
-        if filename := filedialog.askopenfilename():
+        if filename := filedialog.askopenfilename(
+            filetypes=[
+                ("Arquivos ARFF", "*.arff"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        ):
             self.path_var.set(filename)
             self._update_dataset()
 
@@ -311,37 +347,63 @@ class ConfigPanel(ttk.LabelFrame):
         self._on_method_changed()
 
     def _on_method_changed(self, _event=None):
+        self._update_preprocessing_display()
+
+    def _on_config_mode_changed(self):
+        self._update_preprocessing_display()
+
+    def _effective_spec(self):
         method = self.method_var.get()
         if not method:
-            self.preprocessing_var.set(Preprocessors.NONE.value)
-            self.preprocessing_box.configure(state=tk.DISABLED)
-            return
+            return None
 
         mode = Modes(self.mode_var.get())
-        spec = MODE_CONFIGS[mode].specs.get(method)
+        method_enum = Methods(method)
+        base_spec = MODE_CONFIGS[mode].specs.get(method_enum)
+        if base_spec is None:
+            return None
+
+        if self.default_var.get():
+            return base_spec
+
+        try:
+            return load_method_spec(mode, method_enum, MODE_CONFIGS[mode].specs)
+        except (OSError, ValueError):
+            return base_spec
+
+    def _update_preprocessing_display(self):
+        spec = self._effective_spec()
         if spec is None:
             self.preprocessing_var.set(Preprocessors.NONE.value)
             self.preprocessing_box.configure(state=tk.DISABLED)
             return
 
         self.preprocessing_var.set(spec.preprocessing.value)
-        self.preprocessing_box.configure(state="readonly")
+        state = tk.DISABLED if self.default_var.get() else "readonly"
+        self.preprocessing_box.configure(state=state)
 
     def _on_preprocessing_changed(self, _event=None):
         method = self.method_var.get()
-        if not method:
+        if not method or self.default_var.get():
             return
 
         mode = Modes(self.mode_var.get())
-        spec = MODE_CONFIGS[mode].specs.get(method)
-        if spec is None:
-            return
+        method_enum = Methods(method)
+        base_specs = MODE_CONFIGS[mode].specs
+        try:
+            spec = load_method_spec(mode, method_enum, base_specs)
+        except (OSError, ValueError):
+            spec = base_specs[method_enum]
 
         preprocessing = Preprocessors(self.preprocessing_var.get())
-        MODE_CONFIGS[mode].specs[method] = spec.update_params(
-            {},
-            preprocessing=preprocessing,
-        )
+        spec = spec.update_params({}, preprocessing=preprocessing)
+
+        try:
+            save_method_spec(mode, method_enum, spec)
+        except OSError as exc:
+            messagebox.showerror("Pré-processamento", str(exc))
+
+        self._update_preprocessing_display()
 
     def reload_dataset(self) -> bool:
         return self._update_dataset()

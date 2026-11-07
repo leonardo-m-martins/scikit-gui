@@ -35,6 +35,14 @@ class ResultsList(ttk.Frame):
         self._results = list(results)
         self._refresh()
 
+    def select_result(self, result):
+        for index, candidate in enumerate(self._sorted_results()):
+            if candidate is result:
+                self.listbox.selection_clear(0, tk.END)
+                self.listbox.selection_set(index)
+                self.listbox.see(index)
+                return
+
     def selected_result(self):
         selection = self.listbox.curselection()
         if not selection:
@@ -91,6 +99,10 @@ class ResultsView(ttk.Frame):
 
     def refresh(self, results):
         self.results_list.set_results(results)
+
+    def select_result(self, result):
+        self.results_list.select_result(result)
+        self.show_result(result)
 
     def show_result(self, result):
         self.right_pane.config(text=f" 📈 {result.method_name} ")

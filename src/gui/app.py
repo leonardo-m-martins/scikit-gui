@@ -5,15 +5,15 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from src.enums import Modes
+from src.enums import Methods, Modes
 from src.gui.config_panel import ConfigPanel
 from src.gui.data_summary import DataSummaryView
 from src.gui.data_table import DataView
 from src.gui.model_configs import MODE_CONFIGS
 from src.gui.results import ResultsView
 from src.gui.styles import configure_styles
-from src.ml.common import run_all_methods, run_method
-from src.parameters import load_configs
+from src.ml.common import ModeConfig, run_all_methods, run_method
+from src.parameters import load_method_spec, load_mode_specs
 from src.shared import MethodResult
 
 
@@ -23,7 +23,6 @@ class App:
         self.results: list[MethodResult] = []
         self._busy = False
         self._worker_queue = queue.Queue()
-        self.config_report = load_configs(MODE_CONFIGS)
         configure_styles(root)
 
         self.config = ConfigPanel(
@@ -46,33 +45,33 @@ class App:
 
         self.config.reload_dataset()
 
-        if self.config_report.warnings:
-            self._show_config_warnings()
-
-    def _show_config_warnings(self):
-        warnings = self.config_report.warnings
-        shown = warnings[:10]
-
-        if len(warnings) > len(shown):
-            shown.append(f"… e mais {len(warnings) - len(shown)} arquivo(s).")
-
-        messagebox.showwarning(
-            "Configurações",
-            "Alguns arquivos de configuração foram ignorados:\n\n" + "\n".join(shown),
-            parent=self.root,
-        )
-
     def _on_dataset_loaded(self, dataset, mode):
         self.summary_view.render(dataset, mode)
         self.data_view.render(dataset)
 
     def run_selected(self):
-        dataset, split, mode, method = self.config.get_values()
+        dataset, split, mode, method, use_default = self.config.get_values()
         mode_config = MODE_CONFIGS[mode]
 
         if not method:
             messagebox.showwarning("Method", "Select a method first.")
             return
+
+        if not use_default:
+            try:
+                spec = load_method_spec(
+                    mode,
+                    Methods(method),
+                    mode_config.specs,
+                )
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Configuração", str(exc))
+                return
+
+            mode_config = ModeConfig(
+                {Methods(method): spec},
+                mode_config.metrics_fn,
+            )
 
         def work():
             return run_method(
@@ -91,8 +90,18 @@ class App:
         )
 
     def run_all(self):
-        dataset, split, mode, _ = self.config.get_values()
+        dataset, split, mode, _, use_default = self.config.get_values()
         mode_config = MODE_CONFIGS[mode]
+
+        if not use_default:
+            try:
+                specs = load_mode_specs(mode, mode_config.specs)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Configuração", str(exc))
+                return
+
+            mode_config = ModeConfig(specs, mode_config.metrics_fn)
+
         methods = [method.value for method in mode_config.specs]
 
         def work():
@@ -180,10 +189,15 @@ class App:
             return
         self.results.append(result)
         self.results_view.refresh(self.results)
+        self.results_view.select_result(result)
+        self.notebook.select(self.results_view)
 
     def _append_results(self, results):
         self.results.extend(results)
         self.results_view.refresh(self.results)
+        if results:
+            self.results_view.select_result(results[-1])
+            self.notebook.select(self.results_view)
 
 
 def main():

@@ -9,10 +9,9 @@ from src.enums import Methods, Modes
 from src.gui.widgets import ScrollableFrame
 from src.ml.common import ModelSpec
 from src.parameters import (
-    CONFIG_DIR,
     ParameterFileError,
     build_payload,
-    default_filename,
+    config_path,
     parse_payload,
     write_payload,
 )
@@ -216,7 +215,7 @@ class ParameterDialog(tk.Toplevel):
                 preprocessing=self.pending_preprocessing,
             ),
         )
-        path = CONFIG_DIR / default_filename(self.mode, self.method)
+        path = config_path(self.mode, self.method)
 
         try:
             write_payload(path, payload)

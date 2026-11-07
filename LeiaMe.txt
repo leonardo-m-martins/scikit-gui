@@ -1,0 +1,121 @@
+Requerimentos:
+- Python 3.13 ou superior com tkinter
+
+Como rodar:
+- Instalar os pacotes de requirements.txt
+    pip install -r requirements.txt
+- Rodar main.py
+    python main.py
+
+Visão geral da interface:
+- O botão "Procurar" corresponde ao botão "Abrir arquivo" da especificação.
+  Ele permite selecionar um dataset ARFF; o conteúdo é exibido nas abas
+  "Resumo Dados" e "Dados".
+- O seletor "Modo" corresponde ao seletor "Tipo de tarefa" da especificação.
+  As opções são "Classificação" e "Regressão". Ao trocar o modo, a lista de
+  métodos é atualizada automaticamente.
+- O seletor "Método" exibe os métodos disponíveis para o modo escolhido.
+- O slider "Padrão" / "CONFIG.json" corresponde ao seletor "Padrão":
+    - "Padrão": executa o método com os parâmetros definidos no código.
+    - "CONFIG.json": executa o método com os parâmetros do arquivo
+      CONFIG.json correspondente ao modo e ao método selecionados.
+- O botão "Executar Selecionado" corresponde ao botão "Executar" da
+  especificação. Ele executa o método escolhido e exibe as métricas na aba
+  "Resultados".
+- O botão "Executar Todos" é uma funcionalidade extra que executa todos os
+  métodos do modo selecionado.
+
+Abas:
+- "Resumo Dados": resumo do dataset carregado.
+- "Dados": tabela com as amostras do dataset, com paginação.
+- "Resultados": lista das execuções e detalhes das métricas do resultado
+  selecionado.
+    - Classificação: acurácia, precisão, recall, F1-measure e matriz de
+      confusão.
+    - Regressão: MAE, MSE, RMSE e R².
+
+Configurações:
+- Cada método possui um arquivo CONFIG.json próprio:
+    config/classificacao/<metodo>/CONFIG.json
+    config/regressao/<metodo>/CONFIG.json
+  O CONFIG.json é o arquivo de configuração do método; ele equivale ao
+  CONFIG.TXT solicitado na especificação.
+- O slider "Padrão" / "CONFIG.json" escolhe a origem dos parâmetros.
+- O botão "Parâmetros" abre o editor do método selecionado. Ao aplicar as
+  alterações, o CONFIG.json do método é gravado e o slider passa para o modo
+  "CONFIG.json".
+- A caixa "Pré-processamento" mostra o pré-processamento do modo ativo. Ela
+  só pode ser alterada no modo "CONFIG.json"; nesse caso, a alteração é
+  gravada no CONFIG.json do método.
+- No modo "Executar Todos" com a opção "CONFIG.json", todos os arquivos do
+  modo são validados antes da execução. Se algum estiver ausente ou inválido,
+  a execução não começa e uma mensagem de erro é exibida.
+
+Formato do CONFIG.json:
+{
+  "version": 1,
+  "mode": "Classificação",
+  "method": "Decision Tree",
+  "preprocessing": "Nenhum",
+  "params": {
+    "criterion": "entropy",
+    "random_state": 42
+  }
+}
+
+Campos:
+- version: versão do formato do arquivo.
+- mode: "Classificação" ou "Regressão".
+- method: nome do método, igual ao exibido na interface.
+- preprocessing: "Nenhum", "StandardScaler", "MinMaxScaler" ou
+  "RobustScaler".
+- params: hiperparâmetros do modelo. Chaves ausentes usam os valores padrão
+  do scikit-learn.
+
+Datasets:
+- data/spambase.arff: dataset de classificação.
+- data/OnlineNewsPopularity.arff: dataset de regressão; o alvo é "shares"
+  (popularidade em redes sociais).
+- Os dois arquivos estão no formato ARFF, utilizado pelo WEKA.
+
+Arquivos:
+scikit-weka/
+|-- LeiaMe.txt -> Este arquivo
+|-- config/ -> configurações dos parâmetros de cada método
+|   |-- classificacao/
+|   |   |-- adaboostm1/CONFIG.json
+|   |   |-- decision_tree/CONFIG.json
+|   |   `-- ...
+|   `-- regressao/
+|       |-- linear_regression/CONFIG.json
+|       |-- random_forest/CONFIG.json
+|       `-- ...
+|-- data/ -> datasets
+|   |-- OnlineNewsPopularity.arff -> dataset de regressão
+|   `-- spambase.arff -> dataset de classificação
+|-- dev-requirements.txt -> para desenvolvimento apenas
+|-- main.py -> arquivo de entrada
+|-- requirements.txt -> pacotes requeridos
+`-- src/ -> código fonte
+    |-- __init__.py
+    |-- enums.py
+    |-- gui/ -> interface do usuário
+    |   |-- __init__.py
+    |   |-- app.py
+    |   |-- config_panel.py
+    |   |-- data_summary.py
+    |   |-- data_table.py
+    |   |-- model_configs.py
+    |   |-- parameter_dialog.py
+    |   |-- result_details.py
+    |   |-- results.py
+    |   |-- styles.py
+    |   `-- widgets.py
+    |-- loader.py -> carrega os datasets
+    |-- ml/ -> executa os métodos
+    |   |-- __init__.py
+    |   |-- classification.py
+    |   |-- common.py
+    |   `-- regression.py
+    |-- parameters.py -> lê e grava os CONFIG.json
+    `-- shared.py -> estruturas de dados e funções compartilhadas

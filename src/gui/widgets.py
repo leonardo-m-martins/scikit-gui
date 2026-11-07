@@ -82,3 +82,96 @@ class ScrollableFrame(ttk.Frame):
         else:
             self.canvas.yview_scroll(-3 if event.delta > 0 else 3, "units")
         return "break"
+
+
+class ModeSlider(ttk.Frame):
+    """Binary slider that chooses between two configuration sources."""
+
+    def __init__(
+        self,
+        parent,
+        left_text: str,
+        right_text: str,
+        variable: tk.BooleanVar | None = None,
+        command=None,
+    ):
+        super().__init__(parent)
+        self.variable = variable if variable is not None else tk.BooleanVar(True)
+        self._command = command
+        self._updating = False
+
+        self.left_label = ttk.Label(self, text=left_text)
+        self.left_label.pack(side=tk.LEFT, padx=(0, 6))
+        self.left_label.bind("<Button-1>", lambda _event: self.set(True))
+
+        self.scale_var = tk.DoubleVar(value=0 if self.variable.get() else 1)
+        self.scale = ttk.Scale(
+            self,
+            from_=0,
+            to=1,
+            orient=tk.HORIZONTAL,
+            length=90,
+            variable=self.scale_var,
+            command=self._on_scale,
+        )
+        self.scale.pack(side=tk.LEFT)
+
+        self.right_label = ttk.Label(self, text=right_text)
+        self.right_label.pack(side=tk.LEFT, padx=(6, 0))
+        self.right_label.bind("<Button-1>", lambda _event: self.set(False))
+
+        self.variable.trace_add("write", self._on_variable_changed)
+        self._update_labels()
+
+    def _on_scale(self, value):
+        if self._updating:
+            return
+
+        target = 0.0 if float(value) < 0.5 else 1.0
+        self._updating = True
+        self.scale_var.set(target)
+        self.variable.set(target == 0.0)
+        self._updating = False
+        self._update_labels()
+        self._notify()
+
+    def _on_variable_changed(self, *_args):
+        if self._updating:
+            return
+
+        self._updating = True
+        self.scale_var.set(0 if self.variable.get() else 1)
+        self._updating = False
+        self._update_labels()
+        self._notify()
+
+    def _update_labels(self):
+        active_font = ("", 9, "bold")
+        inactive_font = ("", 9)
+        is_default = self.variable.get()
+        self.left_label.configure(
+            font=active_font if is_default else inactive_font,
+        )
+        self.right_label.configure(
+            font=inactive_font if is_default else active_font,
+        )
+
+    def _notify(self):
+        if self._command is not None:
+            self._command()
+
+    def get(self) -> bool:
+        return self.variable.get()
+
+    def set(self, use_default: bool):
+        self._updating = True
+        self.variable.set(use_default)
+        self.scale_var.set(0 if use_default else 1)
+        self._updating = False
+        self._update_labels()
+        self._notify()
+
+    def set_enabled(self, enabled: bool):
+        self.scale.state(["!disabled"] if enabled else ["disabled"])
+        for label in (self.left_label, self.right_label):
+            label.configure(foreground="" if enabled else "gray")

@@ -1,12 +1,11 @@
 import json
 import re
 import unicodedata
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from src.enums import Methods, Modes, Preprocessors
-from src.ml.common import ModeConfig, ModelSpec
+from src.ml.common import ModelSpec
 
 SCHEMA_VERSION = 1
 
@@ -20,12 +19,6 @@ CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
 
 class ParameterFileError(ValueError):
     pass
-
-
-@dataclass(frozen=True)
-class LoadReport:
-    applied: list[str]
-    warnings: list[str]
 
 
 def build_payload(mode: Modes, method: Methods, spec: ModelSpec) -> dict:
@@ -113,9 +106,9 @@ def normalize_params(model_type, params: dict) -> dict:
     return normalized
 
 
-def default_filename(mode: Modes, method: Methods) -> str:
+def config_path(mode: Modes, method: Methods) -> Path:
     slug = _slugify(method.value)
-    return f"parametros_{MODE_SLUGS[mode]}_{slug}.json"
+    return CONFIG_DIR / MODE_SLUGS[mode] / slug / "CONFIG.json"
 
 
 def read_payload(path: Path) -> dict:
@@ -131,55 +124,34 @@ def write_payload(path: Path, payload: dict) -> None:
         file.write("\n")
 
 
-def export_configs(
-    configs: dict[Modes, ModeConfig],
-    directory: Path = CONFIG_DIR,
-) -> list[Path]:
-    paths = []
+def load_method_spec(
+    mode: Modes,
+    method: Methods,
+    specs: dict[Methods, ModelSpec],
+) -> ModelSpec:
+    path = config_path(mode, method)
+    try:
+        payload = read_payload(path)
+    except OSError as exc:
+        raise ParameterFileError(
+            f"Não foi possível ler a configuração de {method.value} em {path}: {exc}"
+        ) from exc
 
-    for mode, config in configs.items():
-        for method, spec in config.specs.items():
-            path = directory / default_filename(mode, method)
-            write_payload(path, build_payload(mode, method, spec))
-            paths.append(path)
-
-    return paths
+    _, spec = parse_payload(payload, mode, specs)
+    return spec
 
 
-def load_configs(
-    configs: dict[Modes, ModeConfig],
-    directory: Path = CONFIG_DIR,
-) -> LoadReport:
-    applied = []
-    warnings = []
+def load_mode_specs(
+    mode: Modes,
+    specs: dict[Methods, ModelSpec],
+) -> dict[Methods, ModelSpec]:
+    return {method: load_method_spec(mode, method, specs) for method in specs}
 
-    if not directory.is_dir():
-        warnings.append(f"Diretório de configurações não encontrado: {directory}")
-        return LoadReport(applied, warnings)
 
-    paths = sorted(directory.glob("*.json"))
-    if not paths:
-        warnings.append(f"Nenhum arquivo de configuração em: {directory}")
-        return LoadReport(applied, warnings)
-
-    for path in paths:
-        try:
-            payload = read_payload(path)
-
-            if not isinstance(payload, dict):
-                raise ParameterFileError("O arquivo deve conter um objeto JSON.")
-
-            mode = Modes(payload.get("mode"))
-            specs = configs[mode].specs
-            method, spec = parse_payload(payload, mode, specs)
-        except (OSError, ValueError, KeyError) as exc:
-            warnings.append(f"{path.name}: {exc}")
-            continue
-
-        specs[method] = spec
-        applied.append(path.name)
-
-    return LoadReport(applied, warnings)
+def save_method_spec(mode: Modes, method: Methods, spec: ModelSpec) -> Path:
+    path = config_path(mode, method)
+    write_payload(path, build_payload(mode, method, spec))
+    return path
 
 
 def _slugify(value: str) -> str:
